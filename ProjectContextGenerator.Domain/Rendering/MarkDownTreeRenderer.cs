@@ -21,7 +21,7 @@ namespace ProjectContextGenerator.Domain.Rendering
                 switch (n)
                 {
                     case DirectoryNode d:
-                        sb.AppendLine($"{indent}- **{d.Name}/**");
+                        sb.AppendLine($"{indent}- {d.Name}/");
                         RenderChildren(d.Children, level + 1, sb);
                         break;
                     case FileNode f:

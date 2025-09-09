@@ -6,7 +6,12 @@ using ProjectContextGenerator.Domain.Options;
 using ProjectContextGenerator.Infrastructure;
 
 IFileSystem fs = new SystemIOFileSystem();
-ITreeBuilder builder = new TreeBuilder(fs);
+IPathMatcher matcher = new GlobPathMatcher(
+    includeGlobs: null,
+    excludeGlobs: ["**/bin/**", "**/obj/**", "**/.git/**", "**/.vs/**", "**/node_modules/**"]
+);
+
+ITreeBuilder builder = new TreeBuilder(fs, matcher);
 ITreeRenderer renderer = new MarkdownTreeRenderer();
 
 var options = new TreeScanOptions(
