@@ -1,6 +1,6 @@
 ﻿using ProjectContextGenerator.Domain.Abstractions;
 
-namespace ProjectContextGenerator.Infrastructure
+namespace ProjectContextGenerator.Infrastructure.FileSystem
 {
     public sealed class SystemIOFileSystem : IFileSystem
     {
@@ -12,5 +12,11 @@ namespace ProjectContextGenerator.Infrastructure
 
         public string GetFileName(string path) =>
             Path.GetFileName(path);
+
+        public bool FileExists(string path) =>
+            File.Exists(path);
+
+        public string ReadAllText(string path) =>
+            File.ReadAllText(path); // UTF-8 by default on .NET
     }
 }

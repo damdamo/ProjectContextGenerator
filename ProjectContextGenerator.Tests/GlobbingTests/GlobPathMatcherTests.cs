@@ -2,6 +2,8 @@
 using ProjectContextGenerator.Domain.Options;
 using ProjectContextGenerator.Domain.Rendering;
 using ProjectContextGenerator.Domain.Services;
+using ProjectContextGenerator.Infrastructure.Filtering;
+using ProjectContextGenerator.Infrastructure.GitIgnore;
 using ProjectContextGenerator.Tests.Fakes;
 
 namespace ProjectContextGenerator.Tests.GlobbingTests
@@ -35,12 +37,11 @@ namespace ProjectContextGenerator.Tests.GlobbingTests
                 ]
             );
 
-            // Exclude all .cs files
-            IPathMatcher matcher = TestMatchers.Matcher(excludes: ["**/*.cs"]);
+            // Exclude all .cs files (glob-only filter; no .gitignore)
+            IPathFilter filter = TestMatchers.Filter(excludes: ["**/*.cs"]);
+            var sut = new TreeBuilder(fs, filter);
 
-            var sut = new TreeBuilder(fs, matcher);
-
-            // Act: build tree
+            // Act
             var tree = sut.Build("/repo", new TreeScanOptions());
             var md = new MarkdownTreeRenderer().Render(tree);
 
@@ -48,6 +49,7 @@ namespace ProjectContextGenerator.Tests.GlobbingTests
             Assert.DoesNotContain("IFileSystem.cs", md);
             Assert.Contains("ProjectContextGenerator.Domain.csproj", md);
         }
+
 
         [Fact]
         public void Includes_default_everything_when_no_includes_specified()

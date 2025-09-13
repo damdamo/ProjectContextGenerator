@@ -3,11 +3,11 @@ using ProjectContextGenerator.Domain.Abstractions;
 using System.Collections.Frozen;
 using System.Text.RegularExpressions;
 
-namespace ProjectContextGenerator.Infrastructure
+namespace ProjectContextGenerator.Infrastructure.Globbing
 {
     /// <summary>
     /// Glob-based path matcher that supports include/exclude patterns for files and directories.
-    /// Uses <see cref="Microsoft.Extensions.FileSystemGlobbing.Matcher"/> under the hood and
+    /// Uses <see cref="Matcher"/> under the hood and
     /// provides careful handling for directory paths (including empty folders) via a probe file.
     /// </summary>
     public sealed class GlobPathMatcher : IPathMatcher
@@ -27,8 +27,8 @@ namespace ProjectContextGenerator.Infrastructure
         /// <param name="excludeGlobs">Exclude patterns (optional).</param>
         public GlobPathMatcher(IEnumerable<string>? includeGlobs, IEnumerable<string>? excludeGlobs)
         {
-            var inc = (includeGlobs is { } i && i.Any()) ? [.. Normalise(i)] : new[] { "**/*" };
-            var exc = (excludeGlobs is { } e && e.Any()) ? [.. Normalise(e)] : Array.Empty<string>();
+            var inc = includeGlobs is { } i && i.Any() ? [.. Normalise(i)] : new[] { "**/*" };
+            var exc = excludeGlobs is { } e && e.Any() ? [.. Normalise(e)] : Array.Empty<string>();
 
             _include.AddIncludePatterns(inc);
             if (exc.Length > 0)

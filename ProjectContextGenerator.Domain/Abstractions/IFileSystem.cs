@@ -26,5 +26,19 @@
         /// <param name="path">The full file or directory path.</param>
         /// <returns>The final segment of the path (file or folder name).</returns>
         string GetFileName(string path);
+
+        /// <summary>
+        /// Returns true if a file exists at the specified path.
+        /// </summary>
+        /// <param name="path">The absolute or relative file path.</param>
+        bool FileExists(string path);
+
+        /// <summary>
+        /// Reads the full textual contents of a file.
+        /// Implementations should use UTF-8 by default.
+        /// </summary>
+        /// <param name="path">The absolute or relative file path.</param>
+        /// <returns>The file contents as a string.</returns>
+        string ReadAllText(string path);
     }
 }

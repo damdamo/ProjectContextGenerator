@@ -36,12 +36,22 @@
     /// If set, extra items are replaced with a placeholder node
     /// (e.g. "… (+N more)"). Null means no limit.
     /// </param>
+    /// <param name="GitIgnore">
+    /// Controls whether and how .gitignore files are applied during scanning.
+    /// Default is RootOnly for practical out-of-the-box filtering.
+    /// </param>
+    /// <param name="GitIgnoreFileName">
+    /// The filename used to locate the ignore file at the root (usually ".gitignore").
+    /// Overridable for tests or custom scenarios.
+    /// </param>
     public sealed record TreeScanOptions(
         int MaxDepth = 4,
         IReadOnlyList<string>? IncludeGlobs = null,   // e.g., ["**/*.cs", "**/*.csproj"]
         IReadOnlyList<string>? ExcludeGlobs = null,   // e.g., ["**/bin/**", "**/obj/**", "**/node_modules/**"]
         bool SortDirectoriesFirst = true,
         bool CollapseSingleChildDirectories = true,
-        int? MaxItemsPerDirectory = null
+        int? MaxItemsPerDirectory = null,
+        GitIgnoreMode GitIgnore = GitIgnoreMode.RootOnly,
+        string? GitIgnoreFileName = ".gitignore"
     );
 }

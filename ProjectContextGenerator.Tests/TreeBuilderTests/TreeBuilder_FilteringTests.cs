@@ -30,12 +30,12 @@ namespace ProjectContextGenerator.Tests.TreeBuilderTests
                 ]
             );
 
-            IPathMatcher matcher = TestMatchers.Matcher(
+            IPathFilter filter = TestMatchers.Filter(
                 excludes: ["**/bin/**", "**/obj/**"]
             );
 
             var options = new TreeScanOptions(MaxDepth: 10, SortDirectoriesFirst: true);
-            var sut = new TreeBuilder(fs, matcher);
+            var sut = new TreeBuilder(fs, filter);
 
             // Act
             var tree = sut.Build(root, options);
@@ -68,12 +68,12 @@ namespace ProjectContextGenerator.Tests.TreeBuilderTests
                 ]
             );
 
-            IPathMatcher matcher = TestMatchers.Matcher(
+            IPathFilter filter = TestMatchers.Filter(
                 includes: ["**/*.cs", "**/src/**"],   // only show code files under src
                 excludes: ["**/Infra/**"]             // hide Infra entirely
             );
 
-            var sut = new TreeBuilder(fs, matcher);
+            var sut = new TreeBuilder(fs, filter);
             var tree = sut.Build(root, new TreeScanOptions(MaxDepth: 10));
             var markdown = new MarkdownTreeRenderer().Render(tree);
 

@@ -6,6 +6,7 @@ namespace ProjectContextGenerator.Tests.Fakes
     {
         private readonly HashSet<string> _dirs;
         private readonly HashSet<string> _files;
+        private readonly Dictionary<string, string> _fileContents;
 
         public FakeFileSystem(IEnumerable<string> directories, IEnumerable<string> files)
         {
@@ -17,6 +18,8 @@ namespace ProjectContextGenerator.Tests.Fakes
             _files = files
                 .Select(NormFile)
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            _fileContents = new Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase);
 
             // Ensure parents exist
             foreach (var d in _dirs.ToList())
@@ -58,6 +61,17 @@ namespace ProjectContextGenerator.Tests.Fakes
             var p = path.Replace('\\', '/').TrimEnd('/');
             var idx = p.LastIndexOf('/');
             return idx >= 0 ? p[(idx + 1)..] : p;
+        }
+        public bool FileExists(string path)
+            => _files.Contains(NormFile(path));
+
+        public string ReadAllText(string path)
+        {
+            var p = NormFile(path);
+            if (!_files.Contains(p))
+                throw new FileNotFoundException($"File not found: {path}");
+
+            return _fileContents.TryGetValue(p, out var content) ? content : string.Empty;
         }
 
         // Helpers

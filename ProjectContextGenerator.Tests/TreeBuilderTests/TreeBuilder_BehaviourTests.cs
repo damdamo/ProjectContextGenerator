@@ -17,9 +17,9 @@ namespace ProjectContextGenerator.Tests.TreeBuilderTests
                 directories: ["/r/A", "/r/A/B", "/r/A/B/C"],
                 files: ["/r/A/B/C/file.txt"]
             );
-            IPathMatcher matcher = TestMatchers.Matcher();
+            IPathFilter filter = TestMatchers.Filter();
 
-            var sut = new TreeBuilder(fs, matcher);
+            var sut = new TreeBuilder(fs, filter);
             var tree = sut.Build(root, new TreeScanOptions(CollapseSingleChildDirectories: true));
             var md = new MarkdownTreeRenderer().Render(tree);
 
@@ -36,9 +36,9 @@ namespace ProjectContextGenerator.Tests.TreeBuilderTests
                 directories: ["/r/src", "/r/docs"],
                 files: ["/r/zzz.txt", "/r/aaa.txt"]
             );
-            IPathMatcher matcher = TestMatchers.Matcher();
+            IPathFilter filter = TestMatchers.Filter();
 
-            var sut = new TreeBuilder(fs, matcher);
+            var sut = new TreeBuilder(fs, filter);
             var md = new MarkdownTreeRenderer().Render(sut.Build(root, new TreeScanOptions(SortDirectoriesFirst: true)));
 
             var srcIndex = md.IndexOf("- src/");
@@ -59,9 +59,9 @@ namespace ProjectContextGenerator.Tests.TreeBuilderTests
                 directories: [],
                 files: Enumerable.Range(1, 10).Select(i => $"/r/file{i}.txt")
             );
-            IPathMatcher matcher = TestMatchers.Matcher();
+            IPathFilter filter = TestMatchers.Filter();
 
-            var sut = new TreeBuilder(fs, matcher);
+            var sut = new TreeBuilder(fs, filter);
             var md = new MarkdownTreeRenderer().Render(
                 sut.Build(root, new TreeScanOptions(MaxItemsPerDirectory: 3))
             );
