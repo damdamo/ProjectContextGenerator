@@ -14,29 +14,31 @@ namespace ProjectContextGenerator.Infrastructure.GitIgnore
     ///  - Negation via '!' to re-include paths.
     ///  - Directory-only rules (pattern ending with '/').
     ///  - Root-anchored rules (pattern starting with '/').
-    ///  - Glob tokens: '*', '?', '**' (where ** can cross directory separators).
+    ///  - Glob tokens: '**', '*', '?'.
     ///  - Character classes: '[abc]', ranges like '[a-z]', and negation '[!abc]'.
+    ///  - Scoped rules from nested .gitignore files (scope = directory of the file).
     /// </summary>
     public sealed class GitIgnoreRuleSet : IIgnoreRuleSet
     {
-        private readonly struct CompiledRule(bool isNegation, bool isDirectoryOnly, Regex regex)
+        private readonly struct CompiledRule(string scope, bool isNegation, bool isDirectoryOnly, Regex regex)
         {
+            public readonly string Scope = scope;          // "" for root; otherwise "dir/subdir" (no trailing '/')
             public readonly bool IsNegation = isNegation;
             public readonly bool IsDirectoryOnly = isDirectoryOnly;
             public readonly Regex Regex = regex;
         }
 
-        private readonly List<CompiledRule> _compiled;
+        private readonly IReadOnlyList<CompiledRule> _compiled;
 
         /// <summary>
-        /// Creates a new rule set from parsed .gitignore rules.
+        /// Root-only constructor (kept for backward compatibility).
+        /// Treats all rules as coming from the repository root.
         /// </summary>
-        /// <param name="rules">Parsed rules in the order they were declared.</param>
         public GitIgnoreRuleSet(IReadOnlyList<GitIgnoreParser.GitIgnoreRule> rules)
         {
             if (rules is null || rules.Count == 0)
             {
-                _compiled = [];
+                _compiled = Array.Empty<CompiledRule>();
                 return;
             }
 
@@ -44,7 +46,29 @@ namespace ProjectContextGenerator.Infrastructure.GitIgnore
             foreach (var r in rules)
             {
                 var regex = BuildRegex(r.NormalizedPattern, r.IsAnchored, r.IsDirectoryOnly);
-                list.Add(new CompiledRule(r.IsNegation, r.IsDirectoryOnly, regex));
+                list.Add(new CompiledRule(scope: "", r.IsNegation, r.IsDirectoryOnly, regex));
+            }
+            _compiled = list;
+        }
+
+        /// <summary>
+        /// Nested constructor: accepts rules with their directory scopes.
+        /// <paramref name="scopedRules"/> must be ordered from parent directories to deeper ones,
+        /// and within each .gitignore in file order. (Deeper rules override parent rules.)
+        /// </summary>
+        public GitIgnoreRuleSet(IReadOnlyList<(string Scope, GitIgnoreParser.GitIgnoreRule Rule)> scopedRules)
+        {
+            if (scopedRules is null || scopedRules.Count == 0)
+            {
+                _compiled = [];
+                return;
+            }
+
+            var list = new List<CompiledRule>(scopedRules.Count);
+            foreach (var (scope, r) in scopedRules)
+            {
+                var regex = BuildRegex(r.NormalizedPattern, r.IsAnchored, r.IsDirectoryOnly);
+                list.Add(new CompiledRule(NormScope(scope), r.IsNegation, r.IsDirectoryOnly, regex));
             }
             _compiled = list;
         }
@@ -53,16 +77,16 @@ namespace ProjectContextGenerator.Infrastructure.GitIgnore
         /// Returns true if the given path is ignored by this rule set.
         /// </summary>
         /// <remarks>
-        /// .gitignore semantics are order-sensitive: the **last matching rule wins**.
-        /// To implement this efficiently and correctly, we iterate the compiled rules
-        /// in reverse order and return on the first match we encounter:
-        ///   - If that rule is a negation ('!'), the path is **not** ignored.
-        ///   - Otherwise, the path **is** ignored.
+        /// .gitignore semantics are order-sensitive: the <b>last matching rule wins</b>.
+        /// We iterate compiled rules in reverse order and return on the first match we encounter:
+        ///   - If that rule is a negation ('!'), the path is <b>not</b> ignored.
+        ///   - Otherwise, the path <b>is</b> ignored.
         /// Directory-only rules (patterns ending with '/') apply only to directories.
+        /// For nested .gitignore files, each rule has a <i>scope</i> (the directory that contains
+        /// the .gitignore). A rule applies only if the evaluated path is within that scope. We
+        /// then evaluate the pattern against the path with the scope prefix removed, so that
+        /// anchored ('/') patterns are relative to that scope as in git.
         /// </remarks>
-        /// <param name="relativePath">Path relative to the scan root, using forward slashes ('/').</param>
-        /// <param name="isDirectory">True if the path refers to a directory.</param>
-        /// <returns>True if the path should be ignored; otherwise false.</returns>
         public bool IsIgnored(string relativePath, bool isDirectory)
         {
             if (string.IsNullOrEmpty(relativePath) || _compiled.Count == 0)
@@ -70,14 +94,29 @@ namespace ProjectContextGenerator.Infrastructure.GitIgnore
 
             var path = Normalize(relativePath);
 
+            // Iterate from last to first because the last matching rule wins.
             for (int i = _compiled.Count - 1; i >= 0; i--)
             {
                 var rule = _compiled[i];
-                if (rule.IsDirectoryOnly && !isDirectory) continue;
-                if (rule.Regex.IsMatch(path))
-                    return !rule.IsNegation; // last match found, stop
+
+                // Skip directory-only rules when evaluating a file.
+                if (rule.IsDirectoryOnly && !isDirectory)
+                    continue;
+
+                // Check scope: rule applies only to paths inside its scope.
+                // Scope "" means repository root (applies to all paths).
+                if (!IsInScope(path, rule.Scope))
+                    continue;
+
+                var subPath = StripScope(path, rule.Scope);
+
+                // First match (from the end) determines the decision.
+                if (rule.Regex.IsMatch(subPath))
+                    return !rule.IsNegation; // true => ignore; false => unignore
             }
-            return false; // no rule matched
+
+            // No rule matched → not ignored.
+            return false;
         }
 
         private static string Normalize(string p)
@@ -85,9 +124,37 @@ namespace ProjectContextGenerator.Infrastructure.GitIgnore
             p = p.Replace('\\', '/');
             if (p.StartsWith("./", StringComparison.Ordinal))
                 p = p[2..];
-            if (p.Length > 1 && p.EndsWith('/'))
+            if (p.Length > 1 && p.EndsWith("/", StringComparison.Ordinal))
                 p = p.TrimEnd('/');
             return p;
+        }
+
+        private static string NormScope(string scope)
+        {
+            if (string.IsNullOrEmpty(scope)) return "";
+            var s = scope.Replace('\\', '/').Trim('/');
+            return s;
+        }
+
+        private static bool IsInScope(string path, string scope)
+        {
+            if (scope.Length == 0) return true; // root scope applies to all
+            if (path.Equals(scope, StringComparison.OrdinalIgnoreCase)) return true;
+            if (path.Length > scope.Length + 1 &&
+                path.StartsWith(scope, StringComparison.OrdinalIgnoreCase) &&
+                path[scope.Length] == '/')
+            {
+                return true;
+            }
+            return false;
+        }
+
+        private static string StripScope(string path, string scope)
+        {
+            if (scope.Length == 0) return path;
+            if (path.Equals(scope, StringComparison.OrdinalIgnoreCase)) return ""; // scope dir itself
+            // Remove "scope/" prefix
+            return path[(scope.Length + 1)..];
         }
 
         /// <summary>
@@ -96,18 +163,14 @@ namespace ProjectContextGenerator.Infrastructure.GitIgnore
         /// </summary>
         private static Regex BuildRegex(string pattern, bool anchored, bool dirOnly)
         {
-            // We build the regex manually (no Regex.Escape over the whole string)
-            // to preserve character classes like [Dd]ebug, [a-z], [!abc].
             var sb = new StringBuilder();
 
-            // Anchor handling: if not anchored, allow match to start at any segment boundary.
-            // We use a non-capturing prefix "(?:^|.*/)".
+            // Anchored: start at beginning of the (scope-relative) path; else from any segment boundary.
             if (anchored)
                 sb.Append('^');
             else
                 sb.Append("(?:^|.*/)");
 
-            // Convert the glob pattern into regex
             AppendPatternAsRegex(sb, pattern);
 
             // Directory-only rules: match the directory itself or anything under it.
@@ -120,13 +183,7 @@ namespace ProjectContextGenerator.Infrastructure.GitIgnore
         }
 
         /// <summary>
-        /// Appends the regex equivalent of the given glob pattern to <paramref name="sb"/>.
-        /// Supports:
-        ///  - '**'  => '.*'      (can cross '/')
-        ///  - '*'   => '[^/]*'   (cannot cross '/')
-        ///  - '?'   => '[^/]'    (single char, not '/')
-        ///  - '[..]' character classes with optional leading '!' for negation
-        /// All other regex metacharacters are escaped.
+        /// Translates a glob pattern to regex. Supports '**', '*', '?', and character classes.
         /// </summary>
         private static void AppendPatternAsRegex(StringBuilder sb, ReadOnlySpan<char> pat)
         {
@@ -140,11 +197,10 @@ namespace ProjectContextGenerator.Infrastructure.GitIgnore
                     switch (c)
                     {
                         case '*':
-                            // '**' => '.*' ; '*' => '[^/]*'
                             if (i + 1 < pat.Length && pat[i + 1] == '*')
                             {
                                 sb.Append(".*");
-                                i++; // consume the second '*'
+                                i++;
                             }
                             else
                             {
@@ -159,15 +215,13 @@ namespace ProjectContextGenerator.Infrastructure.GitIgnore
                         case '[':
                             inClass = true;
                             sb.Append('[');
-                            // Handle negation inside class: [!abc] -> [^abc]
                             if (i + 1 < pat.Length && (pat[i + 1] == '!' || pat[i + 1] == '^'))
                             {
                                 sb.Append('^');
-                                i++; // consume the '!' or '^'
+                                i++;
                             }
                             break;
 
-                        // Escape regex metacharacters outside classes
                         case '.':
                         case '+':
                         case '(':
@@ -180,12 +234,10 @@ namespace ProjectContextGenerator.Infrastructure.GitIgnore
                             sb.Append('\\').Append(c);
                             break;
 
-                        // Slash remains slash (path separator)
                         case '/':
                             sb.Append('/');
                             break;
 
-                        // Everything else is literal
                         default:
                             sb.Append(c);
                             break;
@@ -193,7 +245,6 @@ namespace ProjectContextGenerator.Infrastructure.GitIgnore
                 }
                 else
                 {
-                    // Inside a character class until we hit an unescaped ']'
                     if (c == ']')
                     {
                         inClass = false;
@@ -201,8 +252,6 @@ namespace ProjectContextGenerator.Infrastructure.GitIgnore
                     }
                     else
                     {
-                        // Minimal escaping inside class: only escape '\' and (optionally) '-'
-                        // We keep '-' as-is to allow ranges like a-z.
                         if (c == '\\')
                             sb.Append(@"\\");
                         else
@@ -211,11 +260,8 @@ namespace ProjectContextGenerator.Infrastructure.GitIgnore
                 }
             }
 
-            // If the pattern had an unterminated class, treat '[' literally by escaping it.
             if (inClass)
             {
-                // Replace the trailing '[' with a literal '\['
-                // (Simple approach: append '\[' at the end to avoid invalid regex)
                 sb.Append(@"\[");
             }
         }
