@@ -9,6 +9,7 @@ namespace ProjectContextGenerator.Infrastructure
     {
         private readonly Matcher _include = new(StringComparison.OrdinalIgnoreCase);
         private readonly Matcher _exclude = new(StringComparison.OrdinalIgnoreCase);
+        private readonly bool _hasExcludes;
 
         // Fast path for directories (handles empty dirs too)
         private readonly HashSet<string> _excludedFolderNames;
@@ -20,7 +21,22 @@ namespace ProjectContextGenerator.Infrastructure
             var exc = (excludeGlobs is { } e && e.Any()) ? [.. Normalise(e)] : Array.Empty<string>();
 
             _include.AddIncludePatterns(inc);
-            if (exc.Length > 0) _exclude.AddExcludePatterns(exc);
+            if (exc.Length > 0)
+            {
+                // Add a default include ("**/*") so that this matcher accepts everything by default.
+                // Then apply the actual exclude patterns. Without an include, the matcher would never
+                // return true (because it requires at least one include match). This way, we get a
+                // proper "include all, then exclude some" behavior.
+                //
+                // Example:
+                //   Excludes = ["**/*.cs"]
+                //   → "Foo/File.cs"   => _exclude.Match(...) == false (excluded)
+                //   → "Foo/Lib.csproj"=> _exclude.Match(...) == true  (kept)
+                _exclude.AddInclude("**/*");
+                _exclude.AddExcludePatterns(exc);
+            }
+
+            _hasExcludes = exc.Length > 0;
 
             (_excludedFolderNames, _excludedFolderPrefixes) = ExtractFolderExclusions(exc);
         }
@@ -44,8 +60,10 @@ namespace ProjectContextGenerator.Infrastructure
                 var inc = _include.Match(probe).HasMatches || _include.Match(dir).HasMatches;
                 if (!inc) return false;
 
-                var exc = _exclude.Match(probe).HasMatches || _exclude.Match(dir).HasMatches;
-                return !exc;
+                if (_hasExcludes)
+                    return _exclude.Match(probe).HasMatches || _exclude.Match(dir).HasMatches;
+                
+                return true;
             }
             else
             {
@@ -53,8 +71,8 @@ namespace ProjectContextGenerator.Infrastructure
                 var inc = _include.Match(p).HasMatches;
                 if (!inc) return false;
 
-                var exc = _exclude.Match(p).HasMatches;
-                return !exc;
+                if (!_hasExcludes) return true;
+                return _exclude.Match(p).HasMatches;
             }
         }
 
