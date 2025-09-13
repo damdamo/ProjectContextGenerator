@@ -8,7 +8,7 @@ namespace ProjectContextGenerator.Domain.Rendering
         public string Render(DirectoryNode root)
         {
             var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"`/{root.Name}`");
+            sb.AppendLine($"/{root.Name}/");
             RenderChildren(root.Children, 0, sb);
             return sb.ToString();
         }

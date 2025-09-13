@@ -20,6 +20,6 @@ var options = new TreeScanOptions(
     IncludeGlobs: null
 );
 
-var tree = builder.Build(@"C:\Damien\Dev\C#\ProjectContextGenerator\ProjectContextGenerator.Domain", options);
+var tree = builder.Build(@"C:\Damien\Dev\C#\ProjectContextGenerator\ProjectContextGenerator.Tests", options);
 var output = renderer.Render(tree);
 Console.WriteLine(output);
