@@ -5,6 +5,11 @@ using System.Text.RegularExpressions;
 
 namespace ProjectContextGenerator.Infrastructure
 {
+    /// <summary>
+    /// Glob-based path matcher that supports include/exclude patterns for files and directories.
+    /// Uses <see cref="Microsoft.Extensions.FileSystemGlobbing.Matcher"/> under the hood and
+    /// provides careful handling for directory paths (including empty folders) via a probe file.
+    /// </summary>
     public sealed class GlobPathMatcher : IPathMatcher
     {
         private readonly Matcher _include = new(StringComparison.OrdinalIgnoreCase);
@@ -15,6 +20,11 @@ namespace ProjectContextGenerator.Infrastructure
         private readonly HashSet<string> _excludedFolderNames;
         private readonly HashSet<string> _excludedFolderPrefixes; // e.g. "build/output"
 
+        /// <summary>
+        /// Creates a new <see cref="GlobPathMatcher"/>.
+        /// </summary>
+        /// <param name="includeGlobs">Include patterns (defaults to "**/*" if null/empty).</param>
+        /// <param name="excludeGlobs">Exclude patterns (optional).</param>
         public GlobPathMatcher(IEnumerable<string>? includeGlobs, IEnumerable<string>? excludeGlobs)
         {
             var inc = (includeGlobs is { } i && i.Any()) ? [.. Normalise(i)] : new[] { "**/*" };
@@ -41,6 +51,11 @@ namespace ProjectContextGenerator.Infrastructure
             (_excludedFolderNames, _excludedFolderPrefixes) = ExtractFolderExclusions(exc);
         }
 
+        /// <summary>
+        /// Returns whether a relative path matches the include/exclude rules.
+        /// </summary>
+        /// <param name="relativePath">Path relative to the scan root, using either slash style.</param>
+        /// <param name="isDirectory">True if the path represents a directory.</param>
         public bool IsMatch(string relativePath, bool isDirectory)
         {
             // normalise to forward slashes, no leading "./"
@@ -76,6 +91,9 @@ namespace ProjectContextGenerator.Infrastructure
             }
         }
 
+        /// <summary>
+        /// Normalizes glob patterns to forward slashes and expands folder suffix "/" to "/**".
+        /// </summary>
         private static IEnumerable<string> Normalise(IEnumerable<string> patterns)
         {
             foreach (var raw in patterns)
@@ -89,6 +107,11 @@ namespace ProjectContextGenerator.Infrastructure
             }
         }
 
+        /// <summary>
+        /// Extracts directory exclusions for fast checks:
+        ///  - names: any path segment equal to one of these is excluded (e.g., "bin", "obj").
+        ///  - prefixes: relative prefix match (e.g., "build/output" excludes nested paths).
+        /// </summary>
         private static (HashSet<string> names, HashSet<string> prefixes) ExtractFolderExclusions(IEnumerable<string> excludeGlobs)
         {
             var names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -125,6 +148,11 @@ namespace ProjectContextGenerator.Infrastructure
                     prefixes.ToHashSet(StringComparer.OrdinalIgnoreCase));
         }
 
+
+        /// <summary>
+        /// Returns true if the given folder path should be excluded based on segment names
+        /// (e.g., "obj", "bin") or relative path prefixes (e.g., "build/output").
+        /// </summary>
         private bool IsFolderExcludedByNameOrPrefix(string folderRelativePath)
         {
             var trimmed = folderRelativePath.TrimEnd('/');
