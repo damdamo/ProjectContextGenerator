@@ -1,0 +1,66 @@
+﻿name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch: {}   # ✅ Permet de lancer le workflow manuellement depuis l'onglet Actions
+
+jobs:
+  build-and-test:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest, macos-latest ]
+
+    steps:
+      - name: ⬇️ Checkout
+        uses: actions/checkout@v4
+
+      - name: 🧰 Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+          # Si tu as un global.json, setup-dotnet le respectera automatiquement.
+
+      - name: 📦 Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: 📥 Restore
+        run: dotnet restore ProjectContextGenerator.sln
+
+      - name: 🏗️ Build (Release)
+        run: dotnet build ProjectContextGenerator.sln --configuration Release --no-restore
+
+      - name: ✅ Test (TRX + Coverage)
+        run: >
+          dotnet test ProjectContextGenerator.sln
+          --configuration Release
+          --no-build
+          --logger "trx;LogFileName=TestResults.trx"
+          --collect "XPlat Code Coverage"
+
+      - name: 📤 Upload Test Results (TRX)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: |
+            **/TestResults/*.trx
+
+      - name: 📤 Upload Coverage (cobertura)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.os }}
+          path: |
+            **/TestResults/*/coverage.cobertura.xml
