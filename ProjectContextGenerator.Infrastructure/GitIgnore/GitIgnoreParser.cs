@@ -30,7 +30,7 @@ namespace ProjectContextGenerator.Infrastructure.GitIgnore
         /// </summary>
         /// <param name="content">Full textual content of a .gitignore file.</param>
         /// <returns>Parsed rules in declaration order.</returns>
-        internal static IReadOnlyList<GitIgnoreRule> Parse(string content)
+        public static IReadOnlyList<GitIgnoreRule> Parse(string content)
         {
             var rules = new List<GitIgnoreRule>();
             if (string.IsNullOrEmpty(content))
