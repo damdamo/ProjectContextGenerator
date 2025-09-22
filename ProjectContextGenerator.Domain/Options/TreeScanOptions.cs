@@ -52,6 +52,7 @@
         bool CollapseSingleChildDirectories = true,
         int? MaxItemsPerDirectory = null,
         GitIgnoreMode GitIgnore = GitIgnoreMode.RootOnly,
-        string? GitIgnoreFileName = ".gitignore"
+        string? GitIgnoreFileName = ".gitignore",
+        bool DirectoriesOnly = false
     );
 }

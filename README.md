@@ -87,7 +87,8 @@ var options = new TreeScanOptions(
     IncludeGlobs: null,  // include everything by default
     ExcludeGlobs: ["**/.git/**", "**/.vs/**", "**/bin/**", "**/obj/**", "**/node_modules/**"],
     GitIgnore: GitIgnoreMode.Nested,            // or RootOnly / None
-    GitIgnoreFileName: ".gitignore"
+    GitIgnoreFileName: ".gitignore",
+    DirectoriesOnly: false                      // set to true to list directories only
 );
 
 var rootPath = @"C:\path\to\your\repo";
@@ -126,6 +127,7 @@ Console.WriteLine(renderer.Render(tree));
 - `MaxItemsPerDirectory`: optional cap with placeholder node (`… (+N more)`).
 - `GitIgnore`: `None` | `RootOnly` | `Nested`.
 - `GitIgnoreFileName`: typically `".gitignore"`.
+- `DirectoriesOnly`: default false — when true, files are skipped and only directories are included. Filtering via globs and .gitignore still applies to directories.
 
 ### Filtering precedence
 
@@ -151,7 +153,6 @@ A path is included only if **all three** checks pass.
 
 - **Markdown**: human-friendly tree (folders end with `/`).
 - **PlainText**: simple ASCII output.
-- **JSON**: machine-friendly representation of `DirectoryNode` / `FileNode` trees.
 
 ---
 

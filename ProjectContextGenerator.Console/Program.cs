@@ -17,7 +17,8 @@ var options = new TreeScanOptions(
     IncludeGlobs: null, // include everything by default
     ExcludeGlobs: ["**/.git/**"],
     GitIgnore: GitIgnoreMode.Nested,       // or GitIgnoreMode.None to disable
-    GitIgnoreFileName: ".gitignore"
+    GitIgnoreFileName: ".gitignore",
+    DirectoriesOnly: true
 );
 
 // Build matchers from options

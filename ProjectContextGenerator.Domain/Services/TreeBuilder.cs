@@ -28,7 +28,6 @@ namespace ProjectContextGenerator.Domain.Services
         //    : this(fs, new PathMatcherFilterAdapter(matcher))
         //{
         //}
-
         /// <inheritdoc />
         public DirectoryNode Build(string rootPath, TreeScanOptions options)
         {
@@ -44,7 +43,9 @@ namespace ProjectContextGenerator.Domain.Services
 
             // Enumerate immediate children
             var dirs = fs.EnumerateDirectories(absolutePath);
-            var files = fs.EnumerateFiles(absolutePath);
+            var files = o.DirectoriesOnly
+                ? []
+                : fs.EnumerateFiles(absolutePath);
 
             // Convert to relative forward-slash paths and apply filter
             dirs = dirs.Where(d =>
@@ -53,11 +54,14 @@ namespace ProjectContextGenerator.Domain.Services
                 return filter.ShouldIncludeDirectory(rel);
             });
 
-            files = files.Where(f =>
+            if (!o.DirectoriesOnly)
             {
-                var rel = ToRelative(f);
-                return filter.ShouldIncludeFile(rel);
-            });
+                files = files.Where(f =>
+                {
+                    var rel = ToRelative(f);
+                    return filter.ShouldIncludeFile(rel);
+                });
+            }
 
             var children = new List<TreeNode>();
 
