@@ -7,10 +7,16 @@
     "obj/",
     ".git/",
     "node_modules/",
-     ".github"
+    ".github"
   ],
   "gitIgnore": "Nested",
   "directoriesOnly": false,
+  "history": {
+    "last": 20,
+    "maxBodyLines": 6,
+    "detail": "Titles",
+    "includeMerges": false
+  },
   "profiles": {
     "fast": {
       "maxDepth": 1,
@@ -18,7 +24,10 @@
     },
     "full": {
       "maxDepth": -1,
-      "collapseSingleChildDirectories": false
+      "collapseSingleChildDirectories": false,
+      "history": {
+        "detail": "TitleAndBody"
+      }
     },
     "csharp": {
       "include": [ "**/*.cs", "**/*.csproj" ],

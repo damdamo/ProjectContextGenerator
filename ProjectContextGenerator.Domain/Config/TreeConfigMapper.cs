@@ -1,4 +1,5 @@
 ﻿using ProjectContextGenerator.Domain.Options;
+using System.Collections.Generic;
 
 namespace ProjectContextGenerator.Domain.Config
 {
@@ -17,7 +18,7 @@ namespace ProjectContextGenerator.Domain.Config
         /// <param name="profileName">Optional profile to apply (overrides root config fields).</param>
         /// <param name="configDirectory">Directory where the config file lives (used to resolve relative config root).</param>
         /// <param name="rootOverride">Optional CLI root value (if relative, resolved against Environment.CurrentDirectory).</param>
-        public static (TreeScanOptions Options, string Root, IReadOnlyList<string> Diagnostics)
+        public static (TreeScanOptions Options, HistoryOptions History, string Root, IReadOnlyList<string> Diagnostics)
             Map(TreeConfigDto config, string? profileName, string configDirectory, string? rootOverride)
         {
             var diagnostics = new List<string>();
@@ -84,7 +85,10 @@ namespace ProjectContextGenerator.Domain.Config
                 DirectoriesOnly: directoriesOnly
             );
 
-            return (options, root, diagnostics);
+            // 9) Build HistoryOptions (with safe defaults)
+            var history = BuildHistoryOptions(effectiveConfig.History, diagnostics);
+
+            return (options, history, root, diagnostics);
         }
 
         /// <summary>
@@ -100,7 +104,7 @@ namespace ProjectContextGenerator.Domain.Config
 
             return new TreeConfigDto
             {
-                Version = root.Version ?? profile.Version,
+                Version = profile.Version ?? root.Version,
                 Root = profile.Root ?? root.Root,
                 MaxDepth = profile.MaxDepth ?? root.MaxDepth,
                 Include = profile.Include ?? root.Include,
@@ -111,7 +115,8 @@ namespace ProjectContextGenerator.Domain.Config
                 CollapseSingleChildDirectories = profile.CollapseSingleChildDirectories ?? root.CollapseSingleChildDirectories,
                 MaxItemsPerDirectory = profile.MaxItemsPerDirectory ?? root.MaxItemsPerDirectory,
                 DirectoriesOnly = profile.DirectoriesOnly ?? root.DirectoriesOnly,
-                Profiles = root.Profiles // keep original profiles intact
+                Profiles = root.Profiles, // keep original profiles intact
+                History = MergeHistoryDto(root.History, profile.History)
             };
         }
 
@@ -136,7 +141,7 @@ namespace ProjectContextGenerator.Domain.Config
 
                 var normalized = p.Replace('\\', '/').Trim();
 
-                if (normalized.EndsWith("/"))
+                if (normalized.EndsWith('/'))
                 {
                     // Directory shorthand -> **/dir/**
                     result.Add($"**/{normalized}**");
@@ -146,7 +151,7 @@ namespace ProjectContextGenerator.Domain.Config
                     // Extension shorthand -> **/*.ext
                     result.Add($"**/{normalized}");
                 }
-                else if (!normalized.Contains("*") && !normalized.Contains("?") && !normalized.Contains("["))
+                else if (!normalized.Contains('*') && !normalized.Contains('?') && !normalized.Contains('['))
                 {
                     // Plain name -> **/name
                     result.Add($"**/{normalized}");
@@ -198,6 +203,41 @@ namespace ProjectContextGenerator.Domain.Config
             return Path.IsPathRooted(fromConfig)
                 ? Path.GetFullPath(fromConfig)
                 : Path.GetFullPath(fromConfig, configDirectory);
+        }
+
+        private static HistoryOptions BuildHistoryOptions(HistoryDto? dto, List<string> diagnostics)
+        {
+            // Defaults
+            var last = dto?.Last ?? 20;
+            if (last < 0) { diagnostics.Add($"Invalid history.last '{last}'. Using 0."); last = 0; }
+
+            var maxBody = dto?.MaxBodyLines ?? 6;
+            if (maxBody < 0) { diagnostics.Add($"Invalid history.maxBodyLines '{maxBody}'. Using 0."); maxBody = 0; }
+
+            var detailStr = dto?.Detail ?? "TitlesOnly";
+            if (!Enum.TryParse<HistoryDetail>(detailStr, ignoreCase: true, out HistoryDetail detail))
+            {
+                diagnostics.Add($"Unknown history.detail '{detailStr}'. Falling back to TitlesOnly.");
+                detail = HistoryDetail.TitlesOnly;
+            }
+
+            var includeMerges = dto?.IncludeMerges ?? false;
+            return new HistoryOptions(last, maxBody, detail, includeMerges);
+        }
+
+        private static HistoryDto? MergeHistoryDto(HistoryDto? root, HistoryDto? profile)
+        {
+            if (root is null && profile is null) return null;
+            if (root is null) return profile;
+            if (profile is null) return root;
+
+            return new HistoryDto
+            {
+                Last = profile.Last ?? root.Last,
+                MaxBodyLines = profile.MaxBodyLines ?? root.MaxBodyLines,
+                Detail = profile.Detail ?? root.Detail,
+                IncludeMerges = profile.IncludeMerges ?? root.IncludeMerges
+            };
         }
     }
 }

@@ -1,5 +1,21 @@
 ﻿namespace ProjectContextGenerator.Domain.Config
 {
+
+    public sealed class HistoryDto
+    {
+        /// <summary>Number of latest commits to include (default 20).</summary>
+        public int? Last { get; init; }
+
+        /// <summary>Maximum number of body lines to keep (default 6).</summary>
+        public int? MaxBodyLines { get; init; }
+
+        /// <summary>"TitlesOnly" | "TitleAndBody" (default "TitlesOnly").</summary>
+        public string? Detail { get; init; }
+
+        /// <summary>If true, include merge commits (default false).</summary>
+        public bool? IncludeMerges { get; init; }
+    }
+
     /// <summary>
     /// Represents the raw configuration options loaded from JSON before normalization.
     /// All properties are nullable, allowing omission and fallback to defaults.
@@ -84,5 +100,11 @@
         /// Example: "fast", "full", "csharp".
         /// </summary>
         public IReadOnlyDictionary<string, TreeConfigDto>? Profiles { get; init; }
+
+        /// <summary>
+        /// Optional history block to include recent Git changes in the rendered output.
+        /// Only four keys are supported: last, maxBodyLines, detail, includeMerges.
+        /// </summary>
+        public HistoryDto? History { get; init; }
     }
 }
