@@ -210,7 +210,6 @@ Note: `.git/` itself is usually not in `.gitignore`. Exclude via
 
 -   **Markdown**: human-friendly tree (folders end with `/`).\
 -   **PlainText**: simple ASCII output.\
--   **JSON**: raw machine-readable structure.
 
 ---
 
