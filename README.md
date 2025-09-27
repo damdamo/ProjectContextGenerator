@@ -1,57 +1,68 @@
 # ProjectContextGenerator
 
-Generate a clean, shareable tree of your repository (Markdown, plain text, JSON) with precise filtering that honors both **glob patterns** and **.gitignore** semantics. Perfect for pasting into PRs, issues, or LLM prompts without manual cleanup.
+Generate a clean, shareable tree of your repository (Markdown, plain
+text, JSON) with precise filtering that honors both **glob patterns**,
+**.gitignore semantics**, and optional **config profiles**. Perfect for
+pasting into PRs, issues, or LLM prompts without manual cleanup.
 
 ---
 
 ## Highlights
 
-- **Multiple renderers:** Markdown / Plain text.
-- **Filtering:** Include/Exclude **globs** + `.gitignore` (Root-only or Nested).
-- **Clean architecture:** Domain vs Infrastructure separation; testable components; fake filesystem for deterministic tests.
-- **CI-ready:** GitHub Actions workflow included (`.github/workflows/ci.yml`).
+-   **Multiple renderers:** Markdown / Plain text.
+-   **Filtering:** Include/Exclude **globs** + `.gitignore` (Root-only
+    or Nested).
+-   **Config profiles:** Define reusable presets in `.treegen.json` and
+    select them at runtime.
+-   **Traversal vs rendering:** Directories are always traversed (unless
+    excluded/ignored), ensuring that file-only includes still produce
+    the minimal folder structure.
+-   **Flexible modes:** Combine `DirectoriesOnly` with include patterns
+    to list only the directory skeleton for specific file types
+    (e.g. "all folders that contain JSON files").
+-   **Clean architecture:** Domain vs Infrastructure separation;
+    testable components; fake filesystem for deterministic tests.
+-   **CI-ready:** GitHub Actions workflow included
+    (`.github/workflows/ci.yml`).
 
 ---
 
 ## Project Layout
 
-```
-/ProjectContextGenerator
-├─ .github/workflows/
-│  └─ ci.yml
-├─ ProjectContextGenerator.Console/
-├─ ProjectContextGenerator.Domain/
-│  ├─ Abstractions/
-│  ├─ Models/
-│  ├─ Options/
-│  ├─ Rendering/
-│  ├─ Services/
-│  └─ ProjectContextGenerator.Domain.csproj
-├─ ProjectContextGenerator.Infrastructure/
-│  ├─ FileSystem/
-│  ├─ Filtering/
-│  ├─ GitIgnore/
-│  ├─ Globbing/
-│  └─ ProjectContextGenerator.Infrastructure.csproj
-├─ ProjectContextGenerator.Tests/
-│  ├─ Fakes/
-│  ├─ GlobbingTests/
-│  ├─ RenderingTests/
-│  └─ TreeBuilderTests/
-└─ ProjectContextGenerator.sln
-```
+    /ProjectContextGenerator
+    ├─ ProjectContextGenerator.Console/
+    │  └─ Properties/
+    ├─ ProjectContextGenerator.Domain/
+    │  ├─ Abstractions/
+    │  ├─ Config/
+    │  ├─ Models/
+    │  ├─ Options/
+    │  ├─ Rendering/
+    │  ├─ Services/
+    ├─ ProjectContextGenerator.Infrastructure/
+    │  ├─ FileSystem/
+    │  ├─ Filtering/
+    │  ├─ GitIgnore/
+    │  ├─ Globbing/
+    ├─ ProjectContextGenerator.Tests/
+    │  ├─ ConfigTests/
+    │  ├─ Fakes/
+    │  ├─ GlobbingTests/
+    │  ├─ RenderingTests/
+    │  ├─ TreeBuilderTests/
+    └─ ProjectContextGenerator.sln
 
 ---
 
 ## Requirements
 
-- **.NET 8 SDK**
+-   **.NET 8 SDK**
 
 ---
 
 ## Quickstart
 
-```bash
+``` bash
 # Build
 dotnet build
 
@@ -64,105 +75,154 @@ dotnet run --project ProjectContextGenerator.Console
 
 ---
 
+## Configuration
+
+Tree generation is driven by a JSON config file, typically named
+`.treegen.json`.\
+The console automatically picks it up from the working directory unless
+overridden with `--config`.
+
+Example:
+
+``` jsonc
+{
+  "version": 1,
+  "root": ".",
+  "maxDepth": 3,
+  "exclude": ["bin/", "obj/", ".git/", "node_modules/"],
+  "gitIgnore": "Nested",
+  "profiles": {
+    "fast": { "maxDepth": 1, "directoriesOnly": true },
+    "full": { "maxDepth": -1, "collapseSingleChildDirectories": false },
+    "csharp": { "include": ["*.cs", "*.csproj"], "exclude": ["bin/", "obj/"] }
+  }
+}
+```
+
+### Profiles
+
+Profiles are partial configs that override the root config when
+selected:
+
+``` bash
+dotnet run --project ProjectContextGenerator.Console --profile fast
+dotnet run --project ProjectContextGenerator.Console --profile csharp
+```
+
+### Root resolution
+
+Root is resolved in this order of precedence:
+
+1.  `--root` (CLI argument)\
+2.  `root` field in config or profile\
+3.  Default `"."` (current directory)
+
+Relative paths are resolved against either the CLI working directory or
+the config file's location.
+
+---
+
 ## Usage
 
-### Compose filtering once, then build & render
+### Console
 
-```csharp
-using ProjectContextGenerator.Domain.Abstractions;
-using ProjectContextGenerator.Domain.Options;
-using ProjectContextGenerator.Domain.Rendering;
-using ProjectContextGenerator.Domain.Services;
-using ProjectContextGenerator.Infrastructure.FileSystem;
-using ProjectContextGenerator.Infrastructure.Filtering;
-using ProjectContextGenerator.Infrastructure.Globbing;
-using ProjectContextGenerator.Infrastructure.GitIgnore;
+``` bash
+# Default: uses ./treegen.json if present, profile "full" if selected
+dotnet run --project ProjectContextGenerator.Console --profile full
 
-// File system
-IFileSystem fs = new SystemIOFileSystem();
+# Explicit config path
+dotnet run --project ProjectContextGenerator.Console --config ./configs/custom.json
 
-// Options: single source of truth for traversal and defaults
-var options = new TreeScanOptions(
-    MaxDepth: 4,
-    IncludeGlobs: null,  // include everything by default
-    ExcludeGlobs: ["**/.git/**", "**/.vs/**", "**/bin/**", "**/obj/**", "**/node_modules/**"],
-    GitIgnore: GitIgnoreMode.Nested,            // or RootOnly / None
-    GitIgnoreFileName: ".gitignore",
-    DirectoriesOnly: false                      // set to true to list directories only
-);
-
-var rootPath = @"C:\path\to\your\repo";
-
-// Build globs
-var includeMatcher = new GlobPathMatcher(options.IncludeGlobs, excludeGlobs: null);
-var excludeMatcher = (options.ExcludeGlobs is { Count: > 0 })
-    ? new GlobPathMatcher(includeGlobs: ["**/*"], excludeGlobs: options.ExcludeGlobs)
-    : null;
-
-// Load .gitignore rules (RootOnly or Nested)
-var ignoreRuleSet = (options.GitIgnore == GitIgnoreMode.None)
-    ? EmptyIgnoreRuleSet.Instance
-    : new GitIgnoreRuleProvider(fs).Load(
-        rootPath,
-        new IgnoreLoadingOptions(options.GitIgnore, options.GitIgnoreFileName ?? ".gitignore")
-      );
-
-// Compose the policy used by TreeBuilder
-IPathFilter filter = new CompositePathFilter(includeMatcher, excludeMatcher, ignoreRuleSet);
-
-// Build + render
-ITreeBuilder builder = new TreeBuilder(fs, filter);
-ITreeRenderer renderer = new MarkdownTreeRenderer();
-
-var tree = builder.Build(rootPath, options);
-Console.WriteLine(renderer.Render(tree));
+# Override root at runtime
+dotnet run --project ProjectContextGenerator.Console --root ../other-repo
 ```
 
 ### Options overview
 
-- `MaxDepth`: `0` = root only; `1` = root + direct children; `-1` = unlimited.
-- `IncludeGlobs` / `ExcludeGlobs`: optional glob lists (e.g., `["**/*.cs"]`, `["**/bin/**"]`).
-- `SortDirectoriesFirst`: default `true`.
-- `CollapseSingleChildDirectories`: default `true` (render `a/b/c/` chain as one path).
-- `MaxItemsPerDirectory`: optional cap with placeholder node (`… (+N more)`).
-- `GitIgnore`: `None` | `RootOnly` | `Nested`.
-- `GitIgnoreFileName`: typically `".gitignore"`.
-- `DirectoriesOnly`: default false — when true, files are skipped and only directories are included. Filtering via globs and .gitignore still applies to directories.
+-   `MaxDepth`: `0` = root only; `1` = root + direct children; `-1` =
+    unlimited.
+-   `IncludeGlobs` / `ExcludeGlobs`: optional glob lists (e.g.,
+    `["**/*.cs"]`, `["**/bin/**"]`).
+-   `SortDirectoriesFirst`: default `true`.
+-   `CollapseSingleChildDirectories`: default `true` (render `a/b/c/` as
+    `a/b/c/`).
+-   `MaxItemsPerDirectory`: optional cap with placeholder node
+    (`… (+N more)`).
+-   `GitIgnore`: `None` \| `RootOnly` \| `Nested`.
+-   `GitIgnoreFileName`: typically `".gitignore"`.
+-   `DirectoriesOnly`: default `false`.
 
-### Filtering precedence
+### Combinations
 
-1. **Include globs** must match.  
-2. **.gitignore** must *not* ignore the path.  
-3. **Exclude globs** must *not* exclude the path.  
+-   **Files only**:
+
+    ``` json
+    { "include": ["*.json"] }
+    ```
+
+    → shows only `.json` files and their parent folders.
+
+-   **DirectoriesOnly + file includes**:
+
+    ``` json
+    { "directoriesOnly": true, "include": ["*.json"] }
+    ```
+
+    → shows only the folder skeleton containing at least one `.json`
+    file.
+
+-   **Exclude wins over include**:\
+    Even if `include: ["*.cs"]`, any path under `exclude: ["bin/"]` is
+    pruned.
+
+-   **CollapseSingleChildDirectories**:\
+    Useful for deep nested chains:\
+    `src/utils/helpers/core/ → File.cs`
+
+---
+
+## Filtering precedence
+
+1.  **Include globs** must match (if provided).\
+2.  **.gitignore** must *not* ignore the path.\
+3.  **Exclude globs** must *not* exclude the path.
 
 A path is included only if **all three** checks pass.
 
-### .gitignore semantics (implemented)
+---
 
-- **Last matching rule wins** (we evaluate in reverse order for speed).
-- **Directory-only** patterns (`pattern/`) match the directory **and its subtree**.
-- **Anchored** patterns (`/pattern`) are anchored to the **scope**: repo root in RootOnly mode, containing directory for Nested mode.
-- **Character classes** supported: `[abc]`, ranges `[a-z]`, and negation `[!abc]`.
-- **Parent un-ignore required**: you cannot re-include a file if any parent directory is excluded; unignore parents first (e.g., `!bin/` then `!bin/keep/`).
+## .gitignore semantics
 
-> Note: `.git/` is not typically listed in `.gitignore`. Exclude VCS directories via `ExcludeGlobs` if you don’t want them in the tree.
+-   **Last matching rule wins**.\
+-   **Directory-only patterns** (`pattern/`) match the directory **and
+    its subtree**.\
+-   **Anchored** patterns (`/pattern`) relative to repo root (RootOnly)
+    or containing folder (Nested).\
+-   **Character classes** supported: `[abc]`, `[a-z]`, `[!abc]`.\
+-   **Parent un-ignore required**: e.g. `!bin/` then `!bin/keep/`.
+
+Note: `.git/` itself is usually not in `.gitignore`. Exclude via
+`ExcludeGlobs` instead.
 
 ---
 
 ## Renderers
 
-- **Markdown**: human-friendly tree (folders end with `/`).
-- **PlainText**: simple ASCII output.
+-   **Markdown**: human-friendly tree (folders end with `/`).\
+-   **PlainText**: simple ASCII output.\
+-   **JSON**: raw machine-readable structure.
 
 ---
 
 ## Testing
 
-- Deterministic unit tests using `FakeFileSystem`.
-- Coverage includes globbing, tree building behavior, renderer stability, and `.gitignore` (RootOnly & Nested).
+-   Deterministic unit tests using `FakeFileSystem`.\
+-   Coverage includes globbing, config mapping, traversal semantics,
+    renderer stability, and `.gitignore`.
 
 Run:
-```bash
+
+``` bash
 dotnet test
 ```
 
@@ -170,13 +230,13 @@ dotnet test
 
 ## Contributing
 
-Contributions are welcome. Please:
-- Keep public APIs documented (XML comments).
-- Add tests for new behavior.
-- Follow the folder/namespace conventions.
+Contributions are welcome. Please: - Keep public APIs documented (XML
+comments). - Add tests for new behavior. - Follow the folder/namespace
+conventions.
 
 ---
 
 ## License
 
-Licensed under the **Apache License 2.0**. See `LICENSE.txt` for details.
+Licensed under the **Apache License 2.0**. See `LICENSE.txt` for
+details.
