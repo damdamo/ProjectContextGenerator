@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "root": ".",
+  "maxDepth": 3,
+  "exclude": [
+    "bin/",
+    "obj/",
+    ".git/",
+    "node_modules/",
+     ".github"
+  ],
+  "gitIgnore": "Nested",
+  "directoriesOnly": false,
+  "profiles": {
+    "fast": {
+      "maxDepth": 1,
+      "directoriesOnly": true
+    },
+    "full": {
+      "maxDepth": -1,
+      "collapseSingleChildDirectories": false
+    },
+    "csharp": {
+      "include": [ "**/*.cs", "**/*.csproj" ],
+      "exclude": [ "bin/", "obj/" ]
+    }
+  }
+}
