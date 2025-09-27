@@ -22,28 +22,44 @@ namespace ProjectContextGenerator.Infrastructure.Filtering
 
         /// <inheritdoc />
         public bool ShouldIncludeDirectory(string relativePath)
-            => ShouldInclude(relativePath, isDirectory: true);
+        {
+            var p = Normalize(relativePath);
+            // 1) Include globs (default: include all if not provided)
+            if (_include is not null && !_include.IsMatch(p, isDirectory: true))
+                return false;
+            // 2) .gitignore rules
+            if (_ignore.IsIgnored(p, isDirectory: true))
+                return false;
+            // 3) Exclude globs
+            if (_exclude is not null && !_exclude.IsMatch(p, isDirectory: true))
+                return false;
+            return true;
+        }
 
         /// <inheritdoc />
         public bool ShouldIncludeFile(string relativePath)
-            => ShouldInclude(relativePath, isDirectory: false);
-
-        private bool ShouldInclude(string relativePath, bool isDirectory)
         {
             var p = Normalize(relativePath);
-
             // 1) Include globs (default: include all if not provided)
-            if (_include is not null && !_include.IsMatch(p, isDirectory))
+            if (_include is not null && !_include.IsMatch(p, isDirectory: false))
                 return false;
-
             // 2) .gitignore rules
-            if (_ignore.IsIgnored(p, isDirectory))
+            if (_ignore.IsIgnored(p, isDirectory: false))
                 return false;
-
-            // 3) Exclude globs (default: no excludes if not provided)
-            if (_exclude is not null && !_exclude.IsMatch(p, isDirectory))
+            // 3) Exclude globs
+            if (_exclude is not null && !_exclude.IsMatch(p, isDirectory: false))
                 return false;
+            return true;
+        }
 
+        /// <inheritdoc />
+        public bool CanTraverseDirectory(string relativePath)
+        {
+            var p = Normalize(relativePath);
+            if (_ignore.IsIgnored(p, isDirectory: true))
+                return false;
+            if (_exclude is not null && !_exclude.IsMatch(p, isDirectory: true))
+                return false;
             return true;
         }
 

@@ -47,12 +47,12 @@ namespace ProjectContextGenerator.Domain.Services
                 ? []
                 : fs.EnumerateFiles(absolutePath);
 
-            // Convert to relative forward-slash paths and apply filter
-            dirs = dirs.Where(d =>
+            // Convert to relative forward-slash paths and apply traversal filter (ignores include globs)
+            var traversableDirs = dirs.Where(d =>
             {
                 var rel = ToRelative(d);
-                return filter.ShouldIncludeDirectory(rel);
-            });
+                return filter.CanTraverseDirectory(rel);
+            }).ToList();
 
             if (!o.DirectoriesOnly)
             {
@@ -65,13 +65,24 @@ namespace ProjectContextGenerator.Domain.Services
 
             var children = new List<TreeNode>();
 
-            // Recurse into directories
-            foreach (var dirAbs in dirs)
+            // Recurse into traversable directories; render them only if explicitly included or non-empty after recursion
+            foreach (var dirAbs in traversableDirs)
             {
+                var relDir = ToRelative(dirAbs);
                 var sub = new DirectoryNode(
                     fs.GetFileName(dirAbs),
                     BuildChildren(dirAbs, depth + 1, o)
                 );
+
+                // Decide if the directory should be kept:
+                // - keep if explicitly included by filter, OR
+                // - keep if it contains at least one included child
+                var keepDirectory = filter.ShouldIncludeDirectory(relDir) || sub.Children.Count > 0;
+                if (!keepDirectory)
+                {
+                    continue;
+                }
+
 
                 // Collapse single-child directory chains if enabled
                 if (o.CollapseSingleChildDirectories &&
@@ -132,6 +143,9 @@ namespace ProjectContextGenerator.Domain.Services
 
             public bool ShouldIncludeFile(string relativePath)
                 => matcher.IsMatch(Norm(relativePath), isDirectory: false);
+
+            public bool CanTraverseDirectory(string relativePath)
+                 => matcher.IsMatch(Norm(relativePath), isDirectory: true);
 
             private static string Norm(string p)
             {
