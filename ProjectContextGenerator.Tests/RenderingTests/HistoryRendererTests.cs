@@ -59,35 +59,5 @@ namespace ProjectContextGenerator.Tests.RenderingTests
             var s = r.Render([], new HistoryOptions());
             Assert.Equal(string.Empty, s);
         }
-
-        [Fact]
-        public void PlainText_TitlesOnly_Renders_List()
-        {
-            var commits = SampleCommits();
-            var opts = new HistoryOptions(Last: 10, Detail: HistoryDetail.TitlesOnly);
-            var r = new PlainTextHistoryRenderer();
-            var s = r.Render(commits, opts);
-            var expectedStart = "Recent Changes (last 10)\n- feat: add X\n- fix: bug Y";
-            Assert.StartsWith(N(expectedStart), N(s));
-        }
-
-        [Fact]
-        public void PlainText_TitleAndBody_Renders_Indented_Body()
-        {
-            var commits = SampleCommits();
-            var opts = new HistoryOptions(Last: 10, Detail: HistoryDetail.TitleAndBody);
-            var r = new PlainTextHistoryRenderer();
-            var s = r.Render(commits, opts);
-            var expectedOutput = "- fix: bug Y\n  details 1\n  details 2";
-            Assert.Contains(N(expectedOutput), N(s));
-        }
-
-        [Fact]
-        public void PlainText_EmptyList_Returns_Empty_String()
-        {
-            var r = new PlainTextHistoryRenderer();
-            var s = r.Render([], new HistoryOptions());
-            Assert.Equal(string.Empty, s);
-        }
     }
 }

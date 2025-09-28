@@ -1,7 +1,6 @@
 # ProjectContextGenerator
 
-Generate a clean, shareable tree of your repository (Markdown, plain
-text, JSON) with precise filtering that honors both **glob patterns**,
+Generate a clean, shareable tree of your repository in Markdown with precise filtering that honors both **glob patterns**,
 **.gitignore semantics**, and optional **config profiles**. Perfect for
 pasting into PRs, issues, or LLM prompts without manual cleanup.
 
@@ -9,7 +8,6 @@ pasting into PRs, issues, or LLM prompts without manual cleanup.
 
 ## Highlights
 
--   **Multiple renderers:** Markdown / Plain text.
 -   **Filtering:** Include/Exclude **globs** + `.gitignore` (Root-only
     or Nested).
 -   **Config profiles:** Define reusable presets in `.contextgen.json` and
@@ -196,7 +194,7 @@ changes in a repository.
 ## Recent Changes (last 5)
 - feat: add history support
   parses commits using git log
-  renders Markdown or PlainText
+  renders Markdown
 - fix: handle Windows line endings
 ```
 
@@ -224,16 +222,6 @@ A path is included only if **all three** checks pass.
 
 Note: `.git/` itself is usually not in `.gitignore`. Exclude via
 `ExcludeGlobs` instead.
-
----
-
-## Renderers
-
--   **Markdown**: human-friendly tree (folders end with `/`).\
--   **PlainText**: simple ASCII output.\
-
-When history is enabled, the commit block is rendered in the same format
-as the tree (Markdown or PlainText).
 
 ---
 
