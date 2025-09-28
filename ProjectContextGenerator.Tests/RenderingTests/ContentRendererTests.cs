@@ -12,8 +12,8 @@ namespace ProjectContextGenerator.Tests.RenderingTests
         private static (FakeFileSystem fs, MarkdownTreeRenderer renderer, FileNode file, DirectoryNode root) Setup(string content, ContentOptions opts)
         {
             var fs = new FakeFileSystem(
-                directories: new[] { "/repo/" },
-                files: new[] { "/repo/Foo.cs" }
+                directories: ["/repo/"],
+                files: ["/repo/Foo.cs"]
             );
             fs.SetFileContent("/repo/Foo.cs", content);
 

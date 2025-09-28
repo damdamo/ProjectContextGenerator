@@ -58,7 +58,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
             try
             {
                 var dto = new ContextConfigDto { Version = 1, Root = "relative/from/config" };
-                var (opt, _, _, root, diags) = ContextConfigMapper.Map(dto, null, cfgDir1, null);
+                var (_, _, _, root, diags) = ContextConfigMapper.Map(dto, null, cfgDir1, null);
                 var expected = Path.GetFullPath("relative/from/config", cfgDir1);
                 Assert.Equal(expected, root);
                 Assert.Empty(diags);
@@ -70,7 +70,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
             try
             {
                 var dto = new ContextConfigDto { Version = 1, Root = "relative/from/config" };
-                var (opt, _, _, root, diags) = ContextConfigMapper.Map(dto, null, cfgDir2, rootOverride: "relative/from/cli");
+                var (_, _, _, root, diags) = ContextConfigMapper.Map(dto, null, cfgDir2, rootOverride: "relative/from/cli");
                 var expected = Path.GetFullPath("relative/from/cli", Environment.CurrentDirectory);
                 Assert.Equal(expected, root);
                 Assert.Empty(diags);
@@ -85,7 +85,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
                 var absCli = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "cliRoot_" + Guid.NewGuid().ToString("N")));
                 var dto2 = new ContextConfigDto { Version = 1, Root = absConfig };
 
-                var (opt, _, _, root, diags) = ContextConfigMapper.Map(dto2, null, cfgDir3, absCli);
+                var (_, _, _, root, diags) = ContextConfigMapper.Map(dto2, null, cfgDir3, absCli);
                 Assert.Equal(Path.GetFullPath(absCli), root);
                 Assert.Empty(diags);
             }
