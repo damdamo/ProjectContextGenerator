@@ -1,6 +1,8 @@
 ﻿namespace ProjectContextGenerator.Domain.Config
 {
-
+    /// <summary>
+    /// Configuration block for recent Git history rendering.
+    /// </summary>
     public sealed class HistoryDto
     {
         /// <summary>Number of latest commits to include (default 20).</summary>
@@ -17,9 +19,40 @@
     }
 
     /// <summary>
+    /// Configuration block for file content rendering under file nodes.
+    /// All properties are optional and fall back to sensible defaults in the mapper.
+    /// </summary>
+    public sealed class ContentDto
+    {
+        /// <summary>When true, file contents are rendered beneath file nodes.</summary>
+        public bool? Enabled { get; init; }
+
+        /// <summary>Maximum indentation depth to keep; -1 keeps all depths.</summary>
+        public int? IndentDepth { get; init; }
+
+        /// <summary>Tab width for tabs-to-spaces expansion (e.g., 2, 4, 8).</summary>
+        public int? TabWidth { get; init; }
+
+        /// <summary>When true, attempts to auto-detect tab width on the first lines.</summary>
+        public bool? DetectTabWidth { get; init; }
+
+        /// <summary>Maximum number of lines to render per file; -1 means unlimited.</summary>
+        public int? MaxLinesPerFile { get; init; }
+
+        /// <summary>When true, shows line numbers next to each rendered line.</summary>
+        public bool? ShowLineNumbers { get; init; }
+
+        /// <summary>Number of context lines to retain around kept lines.</summary>
+        public int? ContextPadding { get; init; }
+
+        /// <summary>Optional global cap on the number of files with rendered content.</summary>
+        public int? MaxFiles { get; init; }
+    }
+
+    /// <summary>
     /// Represents the raw configuration options loaded from JSON before normalization.
     /// All properties are nullable, allowing omission and fallback to defaults.
-    /// This DTO is later mapped to <see cref="Options.TreeScanOptions"/> via <see cref="ContextConfigMapper"/>.
+    /// This DTO is later mapped to runtime options via <see cref="ContextConfigMapper"/>.
     /// </summary>
     public sealed class ContextConfigDto
     {
@@ -67,30 +100,23 @@
         /// </summary>
         public string? GitIgnoreFileName { get; init; }
 
-        /// <summary>
-        /// If true, directories are listed before files within each folder.
-        /// Default is true.
-        /// </summary>
+        /// <summary>If true, directories are listed before files. Default is true.</summary>
         public bool? SortDirectoriesFirst { get; init; }
 
         /// <summary>
-        /// If true, collapses single-child directory chains into a combined path.
-        /// Improves readability for deeply nested structures.
+        /// If true, collapses single-child directory chains into a combined path for readability.
         /// Default is true.
         /// </summary>
         public bool? CollapseSingleChildDirectories { get; init; }
 
         /// <summary>
-        /// Maximum number of items to display per directory.
-        /// When set, excess entries are replaced with a placeholder node (e.g. "… (+N more)").
-        /// Null means unlimited.
+        /// Maximum number of items to display per directory. When set, excess entries are replaced
+        /// with a placeholder node (e.g., "… (+N more)"). Null means unlimited.
         /// </summary>
         public int? MaxItemsPerDirectory { get; init; }
 
         /// <summary>
-        /// If true, only directories are rendered; files are skipped.
-        /// Useful to produce a skeleton view of folder hierarchy.
-        /// Filtering rules (include/exclude/gitignore) still apply to directories.
+        /// If true, only directories are rendered; files are skipped. Filtering rules still apply.
         /// </summary>
         public bool? DirectoriesOnly { get; init; }
 
@@ -101,10 +127,10 @@
         /// </summary>
         public IReadOnlyDictionary<string, ContextConfigDto>? Profiles { get; init; }
 
-        /// <summary>
-        /// Optional history block to include recent Git changes in the rendered output.
-        /// Only four keys are supported: last, maxBodyLines, detail, includeMerges.
-        /// </summary>
+        /// <summary>Optional history block to include recent Git changes in the output.</summary>
         public HistoryDto? History { get; init; }
+
+        /// <summary>Optional content block to render file contents below file nodes.</summary>
+        public ContentDto? Content { get; init; }
     }
 }

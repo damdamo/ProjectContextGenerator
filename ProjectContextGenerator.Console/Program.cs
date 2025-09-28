@@ -14,17 +14,21 @@ using ProjectContextGenerator.Infrastructure.GitIgnore;
 using ProjectContextGenerator.Infrastructure.Globbing;
 using ProjectContextGenerator.Infrastructure.History;
 using ProjectContextGenerator.Infrastructure.Process;
-using System.Text;
 
 class Program
 {
+    /// <summary>
+    /// Entry point for the console sample. Loads configuration (with optional profile),
+    /// builds the directory tree using filtering rules, renders it to Markdown,
+    /// and optionally appends a block of recent Git history.
+    /// </summary>
     static int Main(string[] args)
     {
         string? configPath = null;
         string? profile = null;
         string? rootOverride = null;
 
-        // Very minimal args parsing
+        // Minimal CLI parsing
         for (int i = 0; i < args.Length; i++)
         {
             switch (args[i])
@@ -44,16 +48,13 @@ class Program
         ContextConfigDto? dto = null;
         string configDir = Environment.CurrentDirectory;
 
-        // Fallback: ./.contextgen.json if --config not provided
+        // Fallback to ./.contextgen.json if --config is not supplied
         if (string.IsNullOrWhiteSpace(configPath))
         {
             var fallback = Path.Combine(Environment.CurrentDirectory, ".contextgen.json");
             if (File.Exists(fallback))
             {
-                try
-                {
-                    (dto, configDir) = JsonFileConfigLoader.Load(fallback);
-                }
+                try { (dto, configDir) = JsonFileConfigLoader.Load(fallback); }
                 catch (Exception ex)
                 {
                     Console.Error.WriteLine($"Failed to load fallback config '.contextgen.json': {ex.Message}");
@@ -63,10 +64,7 @@ class Program
         }
         else
         {
-            try
-            {
-                (dto, configDir) = JsonFileConfigLoader.Load(configPath!);
-            }
+            try { (dto, configDir) = JsonFileConfigLoader.Load(configPath!); }
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"Failed to load config '{configPath}': {ex.Message}");
@@ -74,63 +72,65 @@ class Program
             }
         }
 
-        // If no config at all, proceed with defaults
-        TreeScanOptions options;
+        // Map configuration to runtime options
+        TreeScanOptions scan;
         HistoryOptions history;
+        ContentOptions content;
         string rootPath;
 
         if (dto is null)
         {
-            // Defaults only
-            options = new TreeScanOptions();
-            // Defaults for history (same as mapper defaults)
+            // Defaults only if no config is present
+            scan = new TreeScanOptions();
             history = new HistoryOptions(Last: 20, MaxBodyLines: 6, Detail: HistoryDetail.TitlesOnly, IncludeMerges: false);
+            content = new ContentOptions(); // default: Enabled=false
             rootPath = string.IsNullOrWhiteSpace(rootOverride)
                 ? Environment.CurrentDirectory
                 : Path.GetFullPath(rootOverride, Environment.CurrentDirectory);
         }
         else
         {
-            // Map config -> options + resolved root (with CLI override)
-            var (mapped, historyOptions, resolvedRoot, diagnostics) =
+            var (scanOptions, historyOptions, contentOptions, resolvedRoot, diagnostics) =
                 ContextConfigMapper.Map(dto, profile, configDir, rootOverride);
 
-            options = mapped;
+            scan = scanOptions;
             history = historyOptions;
+            content = contentOptions;
             rootPath = resolvedRoot;
 
             foreach (var d in diagnostics)
                 Console.Error.WriteLine($"[warn] {d}");
         }
 
-        // Build pipeline (same as your current sample)
+        // Build pipeline
         var fs = new SystemIOFileSystem();
 
-        // Build globs based on options
-        var includeMatcher = new GlobPathMatcher(options.IncludeGlobs, excludeGlobs: null);
-        var excludeMatcher = (options.ExcludeGlobs is { Count: > 0 })
-            ? new GlobPathMatcher(includeGlobs: ["**/*"], excludeGlobs: options.ExcludeGlobs)
+        // Build globs based on options (include/exclude)
+        var includeMatcher = new GlobPathMatcher(scan.IncludeGlobs, excludeGlobs: null);
+        var excludeMatcher = (scan.ExcludeGlobs is { Count: > 0 })
+            ? new GlobPathMatcher(includeGlobs: ["**/*"], excludeGlobs: scan.ExcludeGlobs)
             : null;
 
-        // GitIgnore rules
-        var ignoreRuleSet = options.GitIgnore == GitIgnoreMode.None
+        // GitIgnore rules (None | RootOnly | Nested)
+        var ignoreRuleSet = scan.GitIgnore == GitIgnoreMode.None
             ? EmptyIgnoreRuleSet.Instance
             : new GitIgnoreRuleProvider(fs).Load(
                 rootPath,
-                new IgnoreLoadingOptions(options.GitIgnore, options.GitIgnoreFileName ?? ".gitignore")
+                new IgnoreLoadingOptions(scan.GitIgnore, scan.GitIgnoreFileName ?? ".gitignore")
               );
 
         var filter = new CompositePathFilter(includeMatcher, excludeMatcher, ignoreRuleSet);
 
         var builder = new TreeBuilder(fs, filter);
-        var renderer = new MarkdownTreeRenderer();
 
-        var tree = builder.Build(rootPath, options);
-        //Console.WriteLine(renderer.Render(tree));
+        // Use the content-aware Markdown renderer (interface remains ITreeRenderer).
+        var renderer = new MarkdownTreeRenderer(fs, rootPath, content);
 
+        // Build tree and render
+        var tree = builder.Build(rootPath, scan);
         var treeOutput = renderer.Render(tree);
 
-        // ===== Append Recent Changes AFTER the structure (composition) =====
+        // Optionally append Recent Changes after the structure
         string historyBlock = string.Empty;
         if (history.Last > 0)
         {
@@ -138,12 +138,7 @@ class Program
             IHistoryProvider historyProvider = new GitHistoryProvider(runner);
             var commits = historyProvider.GetRecentCommits(history, rootPath);
 
-            //IHistoryRenderer historyRenderer = (renderer is PlainTextTreeRenderer)
-            //    ? new PlainTextHistoryRenderer()
-            //    : new MarkdownHistoryRenderer();
-
             IHistoryRenderer historyRenderer = new MarkdownHistoryRenderer();
-
             var renderedHistory = historyRenderer.Render(commits, history);
             if (!string.IsNullOrWhiteSpace(renderedHistory))
             {
@@ -152,7 +147,6 @@ class Program
         }
 
         Console.WriteLine(treeOutput + historyBlock);
-
         return 0;
     }
 }

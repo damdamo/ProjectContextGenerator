@@ -1,24 +1,19 @@
 ﻿using ProjectContextGenerator.Domain.Options;
-using System.Collections.Generic;
 
 namespace ProjectContextGenerator.Domain.Config
 {
     /// <summary>
-    /// Maps a raw <see cref="ContextConfigDto"/> into a validated and normalized <see cref="TreeScanOptions"/>.
-    /// Handles profile selection, default values, validation, glob normalization, and root resolution.
+    /// Maps a raw <see cref="ContextConfigDto"/> into normalized runtime options
+    /// (<see cref="TreeScanOptions"/>, <see cref="HistoryOptions"/>, <see cref="ContentOptions"/>),
+    /// and resolves the effective scan root.
     /// </summary>
     public static class ContextConfigMapper
     {
         /// <summary>
-        /// Converts a <see cref="ContextConfigDto"/> into a <see cref="TreeScanOptions"/>,
-        /// returning the final resolved root and diagnostics.
-        /// Priority for root resolution: CLI override > config JSON > default ".".
+        /// Converts a <see cref="ContextConfigDto"/> into runtime options, returning the resolved root and diagnostics.
+        /// Root resolution priority: CLI override &gt; config JSON &gt; default ".".
         /// </summary>
-        /// <param name="config">Root configuration loaded from JSON.</param>
-        /// <param name="profileName">Optional profile to apply (overrides root config fields).</param>
-        /// <param name="configDirectory">Directory where the config file lives (used to resolve relative config root).</param>
-        /// <param name="rootOverride">Optional CLI root value (if relative, resolved against Environment.CurrentDirectory).</param>
-        public static (TreeScanOptions Options, HistoryOptions History, string Root, IReadOnlyList<string> Diagnostics)
+        public static (TreeScanOptions Options, HistoryOptions History, ContentOptions Content, string Root, IReadOnlyList<string> Diagnostics)
             Map(ContextConfigDto config, string? profileName, string configDirectory, string? rootOverride)
         {
             var diagnostics = new List<string>();
@@ -36,11 +31,7 @@ namespace ProjectContextGenerator.Domain.Config
 
             // 3) Validate and normalize MaxDepth
             var maxDepth = effectiveConfig.MaxDepth ?? 4;
-            if (maxDepth < -1)
-            {
-                diagnostics.Add($"Invalid maxDepth '{maxDepth}'. Using -1 instead.");
-                maxDepth = -1;
-            }
+            if (maxDepth < -1) { diagnostics.Add($"Invalid maxDepth '{maxDepth}'. Using -1."); maxDepth = -1; }
 
             // 4) Normalize include/exclude patterns
             var include = NormalizePatterns(effectiveConfig.Include);
@@ -59,17 +50,11 @@ namespace ProjectContextGenerator.Domain.Config
             if (effectiveConfig.MaxItemsPerDirectory.HasValue)
             {
                 var val = effectiveConfig.MaxItemsPerDirectory.Value;
-                if (val < 0)
-                {
-                    diagnostics.Add($"Invalid maxItemsPerDirectory '{val}'. Ignoring value.");
-                }
-                else
-                {
-                    maxItemsPerDirectory = val;
-                }
+                if (val < 0) diagnostics.Add($"Invalid maxItemsPerDirectory '{val}'. Ignoring value.");
+                else maxItemsPerDirectory = val;
             }
 
-            // 7) Resolve root with priority: CLI override > config > default "."
+            // 7) Resolve root
             var root = ResolveRoot(rootOverride, effectiveConfig.Root, configDirectory);
 
             // 8) Build final TreeScanOptions
@@ -85,14 +70,15 @@ namespace ProjectContextGenerator.Domain.Config
                 DirectoriesOnly: directoriesOnly
             );
 
-            // 9) Build HistoryOptions (with safe defaults)
+            // 9) Build History + Content options
             var history = BuildHistoryOptions(effectiveConfig.History, diagnostics);
+            var content = BuildContentOptions(effectiveConfig.Content, diagnostics);
 
-            return (options, history, root, diagnostics);
+            return (options, history, content, root, diagnostics);
         }
 
         /// <summary>
-        /// Applies a profile on top of the root configuration.
+        /// Applies a profile on top of the root configuration (deep merge where relevant).
         /// </summary>
         private static ContextConfigDto MergeProfile(ContextConfigDto root, string profileName, List<string> diagnostics)
         {
@@ -116,17 +102,13 @@ namespace ProjectContextGenerator.Domain.Config
                 MaxItemsPerDirectory = profile.MaxItemsPerDirectory ?? root.MaxItemsPerDirectory,
                 DirectoriesOnly = profile.DirectoriesOnly ?? root.DirectoriesOnly,
                 Profiles = root.Profiles, // keep original profiles intact
-                History = MergeHistoryDto(root.History, profile.History)
+                History = MergeHistoryDto(root.History, profile.History),
+                Content = MergeContentDto(root.Content, profile.Content)
             };
         }
 
         /// <summary>
         /// Expands human-friendly patterns into full glob expressions and normalizes slashes.
-        /// Examples:
-        ///  - "bin/"   -> "**/bin/**"
-        ///  - "*.cs"   -> "**/*.cs"
-        ///  - "README" -> "**/README"
-        /// Already-globbed patterns are preserved.
         /// </summary>
         private static IReadOnlyList<string>? NormalizePatterns(IReadOnlyList<string>? patterns)
         {
@@ -136,44 +118,27 @@ namespace ProjectContextGenerator.Domain.Config
 
             foreach (var p in patterns)
             {
-                if (string.IsNullOrWhiteSpace(p))
-                    continue;
+                if (string.IsNullOrWhiteSpace(p)) continue;
 
-                var normalized = p.Replace('\\', '/').Trim();
+                var s = p.Replace('\\', '/').Trim();
 
-                if (normalized.EndsWith('/'))
-                {
-                    // Directory shorthand -> **/dir/**
-                    result.Add($"**/{normalized}**");
-                }
-                else if (normalized.StartsWith("*."))
-                {
-                    // Extension shorthand -> **/*.ext
-                    result.Add($"**/{normalized}");
-                }
-                else if (!normalized.Contains('*') && !normalized.Contains('?') && !normalized.Contains('['))
-                {
-                    // Plain name -> **/name
-                    result.Add($"**/{normalized}");
-                }
-                else
-                {
-                    // Already a glob
-                    result.Add(normalized);
-                }
+                if (s.EndsWith('/')) result.Add($"**/{s}**");   // "obj/" -> "**/obj/**"
+                else if (s.StartsWith("*.")) result.Add($"**/{s}");     // "*.cs" -> "**/*.cs"
+                else if (!s.Contains('*') && !s.Contains('?') && !s.Contains('['))
+                    result.Add($"**/{s}");       // "README" -> "**/README"
+                else result.Add(s);            // already globbed
             }
 
-            return result.Distinct().ToList();
+            return [.. result.Distinct()];
         }
 
         /// <summary>
-        /// Parses the gitIgnore string into the corresponding enum.
-        /// Falls back to RootOnly with a diagnostic on unknown values.
+        /// Parses the gitIgnore string into the corresponding enum with RootOnly default.
         /// </summary>
         private static GitIgnoreMode ParseGitIgnore(string? value, List<string> diagnostics)
         {
             if (string.IsNullOrWhiteSpace(value))
-                return GitIgnoreMode.RootOnly; // default
+                return GitIgnoreMode.RootOnly;
 
             if (Enum.TryParse<GitIgnoreMode>(value, ignoreCase: true, out var mode))
                 return mode;
@@ -183,11 +148,10 @@ namespace ProjectContextGenerator.Domain.Config
         }
 
         /// <summary>
-        /// Resolves the effective root path based on priority:
+        /// Resolves the effective root path (absolute) based on priority:
         /// 1) CLI override (relative to Environment.CurrentDirectory if not rooted)
         /// 2) Config JSON root (relative to configDirectory if not rooted)
         /// 3) Default "."
-        /// Always returns an absolute, normalized path.
         /// </summary>
         private static string ResolveRoot(string? rootOverride, string? configRoot, string configDirectory)
         {
@@ -205,9 +169,11 @@ namespace ProjectContextGenerator.Domain.Config
                 : Path.GetFullPath(fromConfig, configDirectory);
         }
 
+        /// <summary>
+        /// Builds normalized history options from the DTO with defaults and diagnostics.
+        /// </summary>
         private static HistoryOptions BuildHistoryOptions(HistoryDto? dto, List<string> diagnostics)
         {
-            // Defaults
             var last = dto?.Last ?? 20;
             if (last < 0) { diagnostics.Add($"Invalid history.last '{last}'. Using 0."); last = 0; }
 
@@ -225,6 +191,45 @@ namespace ProjectContextGenerator.Domain.Config
             return new HistoryOptions(last, maxBody, detail, includeMerges);
         }
 
+        /// <summary>
+        /// Builds normalized content options from the DTO with defaults and diagnostics.
+        /// </summary>
+        private static ContentOptions BuildContentOptions(ContentDto? dto, List<string> diagnostics)
+        {
+            if (dto is null) return new ContentOptions(); // defaults (Enabled=false)
+
+            bool enabled = dto.Enabled ?? false;
+
+            int indentDepth = dto.IndentDepth ?? 1;
+            if (indentDepth < -1) { diagnostics.Add($"Invalid content.indentDepth '{indentDepth}'. Using -1."); indentDepth = -1; }
+
+            int tabWidth = dto.TabWidth ?? 4;
+            if (tabWidth != 2 && tabWidth != 4 && tabWidth != 8)
+            {
+                diagnostics.Add($"Suspicious content.tabWidth '{tabWidth}'. Using 4.");
+                tabWidth = 4;
+            }
+
+            bool detect = dto.DetectTabWidth ?? true;
+
+            int maxLines = dto.MaxLinesPerFile ?? 300;
+            if (maxLines < -1 || maxLines == 0)
+            {
+                diagnostics.Add($"Invalid content.maxLinesPerFile '{maxLines}'. Using 300.");
+                maxLines = 300;
+            }
+
+            bool showLineNumbers = dto.ShowLineNumbers ?? false;
+
+            int contextPadding = dto.ContextPadding ?? 1;
+            if (contextPadding < 0) { diagnostics.Add($"Invalid content.contextPadding '{contextPadding}'. Using 0."); contextPadding = 0; }
+
+            int? maxFiles = dto.MaxFiles;
+            if (maxFiles is int mf && mf < 0) { diagnostics.Add($"Invalid content.maxFiles '{mf}'. Ignoring."); maxFiles = null; }
+
+            return new ContentOptions(enabled, indentDepth, tabWidth, detect, maxLines, showLineNumbers, contextPadding, maxFiles);
+        }
+
         private static HistoryDto? MergeHistoryDto(HistoryDto? root, HistoryDto? profile)
         {
             if (root is null && profile is null) return null;
@@ -237,6 +242,25 @@ namespace ProjectContextGenerator.Domain.Config
                 MaxBodyLines = profile.MaxBodyLines ?? root.MaxBodyLines,
                 Detail = profile.Detail ?? root.Detail,
                 IncludeMerges = profile.IncludeMerges ?? root.IncludeMerges
+            };
+        }
+
+        private static ContentDto? MergeContentDto(ContentDto? root, ContentDto? profile)
+        {
+            if (root is null && profile is null) return null;
+            if (root is null) return profile;
+            if (profile is null) return root;
+
+            return new ContentDto
+            {
+                Enabled = profile.Enabled ?? root.Enabled,
+                IndentDepth = profile.IndentDepth ?? root.IndentDepth,
+                TabWidth = profile.TabWidth ?? root.TabWidth,
+                DetectTabWidth = profile.DetectTabWidth ?? root.DetectTabWidth,
+                MaxLinesPerFile = profile.MaxLinesPerFile ?? root.MaxLinesPerFile,
+                ShowLineNumbers = profile.ShowLineNumbers ?? root.ShowLineNumbers,
+                ContextPadding = profile.ContextPadding ?? root.ContextPadding,
+                MaxFiles = profile.MaxFiles ?? root.MaxFiles
             };
         }
     }

@@ -11,27 +11,59 @@
   ],
   "gitIgnore": "Nested",
   "directoriesOnly": false,
+
+  "content": {
+    "enabled": false,
+    "indentDepth": 1,
+    "tabWidth": 2,
+    "detectTabWidth": true,
+    "maxLinesPerFile": 300,
+    "showLineNumbers": false,
+    "contextPadding": 1,
+    "maxFiles": 100
+  },
+
   "history": {
     "last": 20,
     "maxBodyLines": 6,
-    "detail": "Titles",
+    "detail": "TitlesOnly",
     "includeMerges": false
   },
+
   "profiles": {
     "fast": {
       "maxDepth": 1,
-      "directoriesOnly": true
+      "directoriesOnly": true,
+      "content": {
+        "enabled": false // Skip content in fast mode for speed
+      }
     },
     "full": {
       "maxDepth": -1,
       "collapseSingleChildDirectories": false,
       "history": {
         "detail": "TitleAndBody"
+      },
+      "content": {
+        "enabled": true,
+        "indentDepth": 1, // Show full content (no indentation filtering)
+        "maxLinesPerFile": 10 // Unlimited lines
       }
     },
-    "csharp": {
-      "include": [ "**/*.cs", "**/*.csproj" ],
-      "exclude": [ "bin/", "obj/" ]
+    "csharp-essential": {
+      "include": [ "README.md", "**/*.csproj", "Abstractions/" ],
+      "exclude": [ "bin/", "obj/", "./git", "*Tests/" ],
+      "content": {
+        "enabled": true,
+        "indentDepth": -1, // Capture namespace + class + method signatures
+        "maxLinesPerFile": -1 // More generous cap for code files
+      },
+      "history": {
+        "detail": "TitleAndBody"
+      }
+    },
+    "csharp-tests": {
+      "include": [ "*Tests/" ]
     }
   }
 }
