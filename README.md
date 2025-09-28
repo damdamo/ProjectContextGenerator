@@ -12,7 +12,7 @@ pasting into PRs, issues, or LLM prompts without manual cleanup.
 -   **Multiple renderers:** Markdown / Plain text.
 -   **Filtering:** Include/Exclude **globs** + `.gitignore` (Root-only
     or Nested).
--   **Config profiles:** Define reusable presets in `.treegen.json` and
+-   **Config profiles:** Define reusable presets in `.contextgen.json` and
     select them at runtime.
 -   **Traversal vs rendering:** Directories are always traversed (unless
     excluded/ignored), ensuring that file-only includes still produce
@@ -81,7 +81,7 @@ dotnet run --project ProjectContextGenerator.Console
 ## Configuration
 
 Tree generation is driven by a JSON config file, typically named
-`.treegen.json`.\
+`.contextgen.json`.\
 The console automatically picks it up from the working directory unless
 overridden with `--config`.
 
@@ -144,7 +144,7 @@ the config file's location.
 ### Console
 
 ``` bash
-# Default: uses ./treegen.json if present, profile "full" if selected
+# Default: uses ./contextgen.json if present, profile "full" if selected
 dotnet run --project ProjectContextGenerator.Console --profile full
 
 # Explicit config path
