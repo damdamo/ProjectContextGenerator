@@ -11,6 +11,8 @@ namespace ProjectContextGenerator.Domain.Rendering
     /// </summary>
     public sealed class MarkdownTreeRenderer : ITreeRenderer
     {
+        private const string Ellipsis = "...";
+
         private readonly IFileSystem? _fs;
         private readonly string _rootPath = "";
         private readonly ContentOptions _content = new();
@@ -76,7 +78,6 @@ namespace ProjectContextGenerator.Domain.Rendering
         /// </summary>
         private void RenderFileContentBlock(FileNode file, int level, StringBuilder sb)
         {
-            // Compose absolute path using the scan root.
             var abs = System.IO.Path.Combine(_rootPath, file.RelativePath.Replace('/', System.IO.Path.DirectorySeparatorChar));
 
             string text;
@@ -86,15 +87,14 @@ namespace ProjectContextGenerator.Domain.Rendering
             }
             catch
             {
-                // Do not fail the entire rendering if one file is unreadable.
                 AppendNoteLine(sb, level, "⟂ content not displayed (binary/unreadable)");
                 return;
             }
 
-            // Normalize line endings. Keep content as-is otherwise (language-agnostic).
+            // Normalize EOLs
             text = text.Replace("\r\n", "\n").Replace('\r', '\n');
 
-            // Determine tab width (either auto-detected or the configured fallback).
+            // Determine tab width
             var tabWidth = _content.TabWidth;
             if (_content.DetectTabWidth)
             {
@@ -103,17 +103,15 @@ namespace ProjectContextGenerator.Domain.Rendering
                     tabWidth = dw;
             }
 
-            // Expand tabs to spaces to get a stable indentation measure.
+            // Expand tabs
             var lines = text.Split('\n');
             for (int i = 0; i < lines.Length; i++)
-            {
                 lines[i] = ExpandTabs(lines[i], tabWidth);
-            }
 
-            // Keep only lines whose indentation level <= IndentDepth, with padding context around them.
+            // Filter + non-recursive padding, with ellipses
             var kept = FilterByIndentDepth(lines, _content.IndentDepth, tabWidth, _content.ContextPadding);
 
-            // Enforce per-file cap after filtering.
+            // Per-file cap
             var truncated = false;
             if (_content.MaxLinesPerFile > 0 && kept.Count > _content.MaxLinesPerFile)
             {
@@ -121,27 +119,30 @@ namespace ProjectContextGenerator.Domain.Rendering
                 truncated = true;
             }
 
-            // Render as a fenced code block under the file bullet.
-            var bulletIndent = new string(' ', level * 2);
-            sb.AppendLine($"{bulletIndent}  ```");
+            // Fenced code block nested under list item (indent fences only)
+            var fenceIndent = new string(' ', level * 2) + "  ";
+            sb.AppendLine($"{fenceIndent}```");
+
             int lineNo = 1;
             foreach (var line in kept)
             {
+                // Do NOT prepend fenceIndent here; avoid injecting extra leading spaces into code
                 if (_content.ShowLineNumbers)
-                    sb.Append(bulletIndent).Append("  ").Append(lineNo).Append(": ").AppendLine(line);
+                    sb.Append(lineNo).Append(": ").AppendLine(line);
                 else
-                    sb.Append(bulletIndent).Append("  ").AppendLine(line);
+                    sb.AppendLine(line);
 
                 lineNo++;
             }
-            sb.AppendLine($"{bulletIndent}  ```");
 
-            // Informative elision markers (only when depth limiting is active).
+            sb.AppendLine($"{fenceIndent}```");
+
+            // Notes (aligned with list item)
             if (_content.IndentDepth >= 0)
-                AppendNoteLine(sb, level, $"… (lines deeper than level {_content.IndentDepth} hidden)");
+                AppendNoteLine(sb, level, $"{Ellipsis} (lines deeper than level {_content.IndentDepth} hidden)");
 
             if (truncated)
-                AppendNoteLine(sb, level, $"… (truncated to {_content.MaxLinesPerFile} lines)");
+                AppendNoteLine(sb, level, $"{Ellipsis} (truncated to {_content.MaxLinesPerFile} lines)");
         }
 
         /// <summary>
@@ -153,9 +154,6 @@ namespace ProjectContextGenerator.Domain.Rendering
             sb.Append(indent).Append("  ").AppendLine(note);
         }
 
-        /// <summary>
-        /// Expands tabs to spaces using the provided tab width, preserving visual alignment.
-        /// </summary>
         private static string ExpandTabs(string s, int tabWidth)
         {
             if (string.IsNullOrEmpty(s) || s.IndexOf('\t') < 0) return s;
@@ -174,7 +172,6 @@ namespace ProjectContextGenerator.Domain.Rendering
                 else
                 {
                     sb.Append(ch);
-                    // We compute column width on a per-character basis; this is sufficient for indentation count.
                     col += (ch == '\n') ? 0 : 1;
                 }
             }
@@ -182,13 +179,8 @@ namespace ProjectContextGenerator.Domain.Rendering
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Attempts a lightweight tab width detection by scanning indent patterns in the first lines.
-        /// Falls back to <paramref name="fallback"/> if no reliable signal is found.
-        /// </summary>
         private static int? DetectTabWidth(string text, int fallback)
         {
-            // If the file contains literal tabs, we simply use the fallback width.
             if (text.Contains('\t')) return fallback;
 
             var counts = new Dictionary<int, int>();
@@ -212,68 +204,83 @@ namespace ProjectContextGenerator.Domain.Rendering
 
             if (counts.Count == 0) return fallback;
 
-            // Prefer small, common multiples typical in codebases: 2, 4, then 8.
             foreach (var candidate in new[] { 2, 4, 8 })
-            {
                 if (counts.ContainsKey(candidate))
                     return candidate;
-            }
 
             return fallback;
         }
 
         /// <summary>
-        /// Keeps lines whose indentation level (computed as leadingSpaces / tabWidth) is within the configured depth.
-        /// Adds padding lines around kept lines to preserve local context, and collapses large gaps with an ellipsis line.
+        /// Keeps lines whose indentation level (leadingSpaces / tabWidth) is within the configured depth.
+        /// Adds non-recursive padding around core lines only, then collapses gaps with a single
+        /// ellipsis line ("..."), indented one extra level (tabWidth * (indentDepth + 1)) for visual naturalness.
         /// </summary>
         private static List<string> FilterByIndentDepth(string[] lines, int indentDepth, int tabWidth, int contextPadding)
         {
             if (indentDepth < 0)
                 return [.. lines];
 
-            var keepMask = new bool[lines.Length];
+            int n = lines.Length;
 
-            // Mark lines to keep based on indentation threshold.
-            for (int i = 0; i < lines.Length; i++)
+            // 1) Core lines by indentation threshold (blank lines are not core)
+            var core = new bool[n];
+            for (int i = 0; i < n; i++)
             {
-                int leading = 0;
                 var line = lines[i];
+                if (string.IsNullOrWhiteSpace(line))
+                    continue;
+
+                int leading = 0;
                 while (leading < line.Length && line[leading] == ' ') leading++;
                 int level = (tabWidth > 0) ? (leading / tabWidth) : 0;
-                if (level <= indentDepth) keepMask[i] = true;
+
+                if (level <= indentDepth)
+                    core[i] = true;
             }
 
-            // Add context around kept lines to avoid isolated fragments.
-            if (contextPadding > 0)
+            // 2) Non-recursive padding
+            var kept = new bool[n];
+            if (contextPadding <= 0)
             {
-                for (int i = 0; i < lines.Length; i++)
+                for (int i = 0; i < n; i++) kept[i] = core[i];
+            }
+            else
+            {
+                for (int i = 0; i < n; i++)
                 {
-                    if (!keepMask[i]) continue;
+                    if (!core[i]) continue;
                     int from = Math.Max(0, i - contextPadding);
-                    int to = Math.Min(lines.Length - 1, i + contextPadding);
-                    for (int j = from; j <= to; j++) keepMask[j] = true;
+                    int to = Math.Min(n - 1, i + contextPadding);
+                    for (int j = from; j <= to; j++) kept[j] = true;
                 }
             }
 
-            // Build final list, collapsing large gaps into a visible ellipsis line.
-            var result = new List<string>(lines.Length);
-            bool inGap = false;
-
-            for (int i = 0; i < lines.Length; i++)
+            // 3) Intervals of kept lines
+            var intervals = new List<(int Start, int End)>();
+            int k = 0;
+            while (k < n)
             {
-                if (keepMask[i])
-                {
-                    if (inGap)
-                    {
-                        result.Add("…"); // single visual marker for a skipped block
-                        inGap = false;
-                    }
+                if (!kept[k]) { k++; continue; }
+                int start = k;
+                k++;
+                while (k < n && kept[k]) k++;
+                intervals.Add((start, k - 1));
+            }
+
+            // 4) Stitch with indented ellipsis between fragments
+            var result = new List<string>(n);
+            string ellipsisLine = new string(' ', Math.Max(0, (indentDepth + 1) * tabWidth)) + Ellipsis;
+
+            for (int idx = 0; idx < intervals.Count; idx++)
+            {
+                var (start, end) = intervals[idx];
+
+                if (idx > 0)
+                    result.Add(ellipsisLine);
+
+                for (int i = start; i <= end; i++)
                     result.Add(lines[i]);
-                }
-                else
-                {
-                    inGap = true;
-                }
             }
 
             return result;

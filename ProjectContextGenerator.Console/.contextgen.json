@@ -19,7 +19,7 @@
     "detectTabWidth": true,
     "maxLinesPerFile": 300,
     "showLineNumbers": false,
-    "contextPadding": 1,
+    "contextPadding": 2,
     "maxFiles": 100
   },
 
@@ -68,7 +68,7 @@
       "include": [ "*Tests/" ],
       "content": {
         "enabled": true,
-        "indentDepth": 0
+        "indentDepth": 1
       }
     }
   }
