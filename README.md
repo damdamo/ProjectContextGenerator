@@ -1,8 +1,8 @@
 # ProjectContextGenerator
 
-Generate a clean, shareable tree of your repository in Markdown with precise filtering that honors both **glob patterns**,
-**.gitignore semantics**, and optional **config profiles**. Perfect for
-pasting into PRs, issues, or LLM prompts without manual cleanup.
+Generate a clean, shareable context of your repository in Markdown, including a filtered directory tree and recent Git commit history. 
+Filtering honors **glob patterns**, **.gitignore semantics**, and optional **config profiles**.
+Perfect for pasting into PRs, issues, or LLM prompts to provide rich project context without manual cleanup.
 
 ---
 
@@ -12,18 +12,11 @@ pasting into PRs, issues, or LLM prompts without manual cleanup.
     or Nested).
 -   **Config profiles:** Define reusable presets in `.contextgen.json` and
     select them at runtime.
--   **Traversal vs rendering:** Directories are always traversed (unless
-    excluded/ignored), ensuring that file-only includes still produce
-    the minimal folder structure.
 -   **Flexible modes:** Combine `DirectoriesOnly` with include patterns
     to list only the directory skeleton for specific file types
     (e.g. "all folders that contain JSON files").
 -   **History mode:** Optionally append recent Git commit messages
     (titles or titles+body) after the tree for extra project context.
--   **Clean architecture:** Domain vs Infrastructure separation;
-    testable components; fake filesystem for deterministic tests.
--   **CI-ready:** GitHub Actions workflow included
-    (`.github/workflows/ci.yml`).
 
 ---
 
