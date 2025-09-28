@@ -74,7 +74,7 @@ namespace ProjectContextGenerator.Tests.RenderingTests
 
             Assert.Contains("Line 1", output);
             Assert.Contains("Line 10", output);
-            Assert.Contains("… (truncated", output);
+            Assert.Contains("... (truncated", output);
             Assert.DoesNotContain("Line 50", output);
         }
 
