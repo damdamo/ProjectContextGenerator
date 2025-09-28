@@ -19,9 +19,9 @@
     /// <summary>
     /// Represents the raw configuration options loaded from JSON before normalization.
     /// All properties are nullable, allowing omission and fallback to defaults.
-    /// This DTO is later mapped to <see cref="Options.TreeScanOptions"/> via <see cref="TreeConfigMapper"/>.
+    /// This DTO is later mapped to <see cref="Options.TreeScanOptions"/> via <see cref="ContextConfigMapper"/>.
     /// </summary>
-    public sealed class TreeConfigDto
+    public sealed class ContextConfigDto
     {
         /// <summary>
         /// Version of the config schema. Currently only <c>1</c> is supported.
@@ -99,7 +99,7 @@
         /// that overrides values from the root configuration when selected via CLI.
         /// Example: "fast", "full", "csharp".
         /// </summary>
-        public IReadOnlyDictionary<string, TreeConfigDto>? Profiles { get; init; }
+        public IReadOnlyDictionary<string, ContextConfigDto>? Profiles { get; init; }
 
         /// <summary>
         /// Optional history block to include recent Git changes in the rendered output.

@@ -34,7 +34,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
         {
             var tmpDir = Path.Combine(Path.GetTempPath(), $"cfg_{Guid.NewGuid():N}");
             Directory.CreateDirectory(tmpDir);
-            var tmpFile = Path.Combine(tmpDir, ".treegen.json");
+            var tmpFile = Path.Combine(tmpDir, ".contextgen.json");
 
             var json = """
             {

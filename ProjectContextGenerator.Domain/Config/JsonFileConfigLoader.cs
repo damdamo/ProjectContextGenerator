@@ -16,7 +16,7 @@ namespace ProjectContextGenerator.Infrastructure.Config
         /// Loads a TreeConfigDto from a JSON file and returns the DTO plus the directory containing the file.
         /// Throws FileNotFoundException or JsonException on errors.
         /// </summary>
-        public static (TreeConfigDto Config, string ConfigDirectory) Load(string path)
+        public static (ContextConfigDto Config, string ConfigDirectory) Load(string path)
         {
             if (string.IsNullOrWhiteSpace(path))
                 throw new ArgumentException("Config path is null or empty.", nameof(path));
@@ -26,7 +26,7 @@ namespace ProjectContextGenerator.Infrastructure.Config
                 throw new FileNotFoundException($"Config file not found: {fullPath}", fullPath);
 
             var json = File.ReadAllText(fullPath);
-            var dto = JsonSerializer.Deserialize<TreeConfigDto>(json, s_options)
+            var dto = JsonSerializer.Deserialize<ContextConfigDto>(json, s_options)
                       ?? throw new JsonException("Config file deserialized to null DTO.");
 
             var directory = Path.GetDirectoryName(fullPath)
