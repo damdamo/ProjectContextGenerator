@@ -5,6 +5,12 @@
     /// </summary>
     public sealed class HistoryDto
     {
+        /// <summary>
+        /// When true, the history block is rendered (subject to <see cref="Last"/>).
+        /// Defaults to true when omitted.
+        /// </summary>
+        public bool? Enabled { get; init; }
+
         /// <summary>Number of latest commits to include (default 20).</summary>
         public int? Last { get; init; }
 

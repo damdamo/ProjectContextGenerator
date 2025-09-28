@@ -132,7 +132,7 @@ class Program
 
         // Optionally append Recent Changes after the structure
         string historyBlock = string.Empty;
-        if (history.Last > 0)
+        if (history.Enabled && history.Last > 0)
         {
             IProcessRunner runner = new SystemProcessRunner();
             IHistoryProvider historyProvider = new GitHistoryProvider(runner);

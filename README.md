@@ -97,7 +97,7 @@ Example:
   "gitIgnore": "Nested",
 
   "content": {
-    "enabled": true,
+    "enabled": false,
     "indentDepth": 1,
     "tabWidth": 4,
     "detectTabWidth": true,
@@ -107,6 +107,7 @@ Example:
   },
 
   "history": {
+    "enabled": true,
     "last": 20,
     "maxBodyLines": 6,
     "detail": "TitlesOnly",
@@ -114,29 +115,25 @@ Example:
   },
 
   "profiles": {
-    "fast": {
-      "maxDepth": 1,
-      "directoriesOnly": true,
-      "content": { "enabled": false } // skip content for speed
+  "fast": {
+    "maxDepth": 3,
+    "directoriesOnly": true,
+    "content": {
+      "enabled": false
     },
-    "full": {
-      "maxDepth": -1,
-      "collapseSingleChildDirectories": false,
-      "history": { "detail": "TitleAndBody" },
-      "content": {
-        "enabled": true,
-        "indentDepth": -1,       // show full content
-        "maxLinesPerFile": -1    // unlimited lines
-      }
+    "history": {
+      "enabled": false
+    }
+  },
+  "full": {
+    "maxDepth": -1,
+    "collapseSingleChildDirectories": false,
+    "history": {
+      "detail": "TitleAndBody"
     },
-    "csharp": {
-      "include": ["*.cs", "*.csproj"],
-      "exclude": ["bin/", "obj/"],
-      "content": {
-        "enabled": true,
-        "indentDepth": 2,        // namespace + class + method signatures
-        "maxLinesPerFile": 200
-      }
+    "content": {
+      "enabled": true,
+      "indentDepth": 1 // Show full content (no indentation filtering)
     }
   }
 }
@@ -285,6 +282,7 @@ changes in a repository.
 
 ### History options
 
+-	`Enabled`: when `true`, enables the history block (requires `Last > 0` to render). Default `true`.
 -   `Last`: number of commits to show. Default `20`. `0` disables
     history.
 -   `MaxBodyLines`: max number of body lines per commit (after trimming

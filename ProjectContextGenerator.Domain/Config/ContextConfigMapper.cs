@@ -174,6 +174,9 @@ namespace ProjectContextGenerator.Domain.Config
         /// </summary>
         private static HistoryOptions BuildHistoryOptions(HistoryDto? dto, List<string> diagnostics)
         {
+            // Enabled defaults to true for backward compatibility.
+            var enabled = dto?.Enabled ?? true;
+
             var last = dto?.Last ?? 20;
             if (last < 0) { diagnostics.Add($"Invalid history.last '{last}'. Using 0."); last = 0; }
 
@@ -188,7 +191,14 @@ namespace ProjectContextGenerator.Domain.Config
             }
 
             var includeMerges = dto?.IncludeMerges ?? false;
-            return new HistoryOptions(last, maxBody, detail, includeMerges);
+
+            return new HistoryOptions(
+                Enabled: enabled,
+                Last: last,
+                MaxBodyLines: maxBody,
+                Detail: detail,
+                IncludeMerges: includeMerges
+            );
         }
 
         /// <summary>
@@ -238,6 +248,7 @@ namespace ProjectContextGenerator.Domain.Config
 
             return new HistoryDto
             {
+                Enabled = profile.Enabled ?? root.Enabled,
                 Last = profile.Last ?? root.Last,
                 MaxBodyLines = profile.MaxBodyLines ?? root.MaxBodyLines,
                 Detail = profile.Detail ?? root.Detail,

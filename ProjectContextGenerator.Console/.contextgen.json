@@ -24,6 +24,7 @@
   },
 
   "history": {
+    "enabled": true,
     "last": 20,
     "maxBodyLines": 6,
     "detail": "TitlesOnly",
@@ -32,10 +33,13 @@
 
   "profiles": {
     "fast": {
-      "maxDepth": 1,
+      "maxDepth": 3,
       "directoriesOnly": true,
       "content": {
-        "enabled": false // Skip content in fast mode for speed
+        "enabled": false
+      },
+      "history": {
+        "enabled": false
       }
     },
     "full": {
@@ -46,24 +50,26 @@
       },
       "content": {
         "enabled": true,
-        "indentDepth": 1, // Show full content (no indentation filtering)
-        "maxLinesPerFile": 10 // Unlimited lines
+        "indentDepth": 1
       }
     },
     "csharp-essential": {
-      "include": [ "README.md", "**/*.csproj", "Abstractions/" ],
-      "exclude": [ "bin/", "obj/", "./git", "*Tests/" ],
+      "include": [ "README.md", "**/*.csproj" ],
       "content": {
         "enabled": true,
-        "indentDepth": -1, // Capture namespace + class + method signatures
-        "maxLinesPerFile": -1 // More generous cap for code files
+        "indentDepth": -1,
+        "maxLinesPerFile": -1
       },
       "history": {
         "detail": "TitleAndBody"
       }
     },
     "csharp-tests": {
-      "include": [ "*Tests/" ]
+      "include": [ "*Tests/" ],
+      "content": {
+        "enabled": true,
+        "indentDepth": 0
+      }
     }
   }
 }
