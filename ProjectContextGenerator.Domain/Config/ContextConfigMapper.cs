@@ -4,13 +4,13 @@ using System.Collections.Generic;
 namespace ProjectContextGenerator.Domain.Config
 {
     /// <summary>
-    /// Maps a raw <see cref="TreeConfigDto"/> into a validated and normalized <see cref="TreeScanOptions"/>.
+    /// Maps a raw <see cref="ContextConfigDto"/> into a validated and normalized <see cref="TreeScanOptions"/>.
     /// Handles profile selection, default values, validation, glob normalization, and root resolution.
     /// </summary>
-    public static class TreeConfigMapper
+    public static class ContextConfigMapper
     {
         /// <summary>
-        /// Converts a <see cref="TreeConfigDto"/> into a <see cref="TreeScanOptions"/>,
+        /// Converts a <see cref="ContextConfigDto"/> into a <see cref="TreeScanOptions"/>,
         /// returning the final resolved root and diagnostics.
         /// Priority for root resolution: CLI override > config JSON > default ".".
         /// </summary>
@@ -19,7 +19,7 @@ namespace ProjectContextGenerator.Domain.Config
         /// <param name="configDirectory">Directory where the config file lives (used to resolve relative config root).</param>
         /// <param name="rootOverride">Optional CLI root value (if relative, resolved against Environment.CurrentDirectory).</param>
         public static (TreeScanOptions Options, HistoryOptions History, string Root, IReadOnlyList<string> Diagnostics)
-            Map(TreeConfigDto config, string? profileName, string configDirectory, string? rootOverride)
+            Map(ContextConfigDto config, string? profileName, string configDirectory, string? rootOverride)
         {
             var diagnostics = new List<string>();
 
@@ -94,7 +94,7 @@ namespace ProjectContextGenerator.Domain.Config
         /// <summary>
         /// Applies a profile on top of the root configuration.
         /// </summary>
-        private static TreeConfigDto MergeProfile(TreeConfigDto root, string profileName, List<string> diagnostics)
+        private static ContextConfigDto MergeProfile(ContextConfigDto root, string profileName, List<string> diagnostics)
         {
             if (root.Profiles == null || !root.Profiles.TryGetValue(profileName, out var profile))
             {
@@ -102,7 +102,7 @@ namespace ProjectContextGenerator.Domain.Config
                 return root;
             }
 
-            return new TreeConfigDto
+            return new ContextConfigDto
             {
                 Version = profile.Version ?? root.Version,
                 Root = profile.Root ?? root.Root,

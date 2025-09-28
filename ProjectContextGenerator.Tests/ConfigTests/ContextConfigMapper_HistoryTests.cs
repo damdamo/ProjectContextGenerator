@@ -3,7 +3,7 @@ using ProjectContextGenerator.Domain.Options;
 
 namespace ProjectContextGenerator.Tests.ConfigTests
 {
-    public sealed class TreeConfigMapper_HistoryTests
+    public sealed class ContextConfigMapper_HistoryTests
     {
         private static string MakeTempDir()
         {
@@ -18,8 +18,8 @@ namespace ProjectContextGenerator.Tests.ConfigTests
             var cfgDir = MakeTempDir();
             try
             {
-                var dto = new TreeConfigDto { Version = 1 };
-                var (_, history, _, diags) = TreeConfigMapper.Map(dto, null, cfgDir, null);
+                var dto = new ContextConfigDto { Version = 1 };
+                var (_, history, _, diags) = ContextConfigMapper.Map(dto, null, cfgDir, null);
 
                 Assert.Empty(diags);
                 Assert.Equal(20, history.Last);
@@ -36,7 +36,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
             var cfgDir = MakeTempDir();
             try
             {
-                var dto = new TreeConfigDto
+                var dto = new ContextConfigDto
                 {
                     Version = 1,
                     History = new HistoryDto
@@ -48,7 +48,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
                     }
                 }
                 ;
-                var (_, h, _, diags) = TreeConfigMapper.Map(dto, null, cfgDir, null);
+                var (_, h, _, diags) = ContextConfigMapper.Map(dto, null, cfgDir, null);
                 Assert.Empty(diags);
                 Assert.Equal(7, h.Last);
                 Assert.Equal(2, h.MaxBodyLines);
@@ -64,11 +64,11 @@ namespace ProjectContextGenerator.Tests.ConfigTests
             var cfgDir = MakeTempDir();
             try
             {
-                var dto = new TreeConfigDto
+                var dto = new ContextConfigDto
                 {
                     Version = 1,
                     History = new HistoryDto { Last = 20, MaxBodyLines = 6, Detail = "TitlesOnly", IncludeMerges = false },
-                    Profiles = new Dictionary<string, TreeConfigDto>
+                    Profiles = new Dictionary<string, ContextConfigDto>
                     {
                         ["full"] = new()
                         {
@@ -77,7 +77,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
                     }
                 }
                 ;
-                var (_, h, _, diags) = TreeConfigMapper.Map(dto, "full", cfgDir, null);
+                var (_, h, _, diags) = ContextConfigMapper.Map(dto, "full", cfgDir, null);
                 Assert.Empty(diags);
                 Assert.Equal(20, h.Last);
                 Assert.Equal(6, h.MaxBodyLines);
@@ -93,7 +93,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
             var cfgDir = MakeTempDir();
             try
             {
-                var dto = new TreeConfigDto
+                var dto = new ContextConfigDto
                 {
                     Version = 1,
                     History = new HistoryDto
@@ -104,7 +104,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
                     }
                 }
                 ;
-                var (_, h, _, diags) = TreeConfigMapper.Map(dto, null, cfgDir, null);
+                var (_, h, _, diags) = ContextConfigMapper.Map(dto, null, cfgDir, null);
                 Assert.Equal(0, h.Last);
                 Assert.Equal(0, h.MaxBodyLines);
                 Assert.Equal(HistoryDetail.TitlesOnly, h.Detail);

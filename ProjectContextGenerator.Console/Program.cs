@@ -41,13 +41,13 @@ class Program
             }
         }
 
-        TreeConfigDto? dto = null;
+        ContextConfigDto? dto = null;
         string configDir = Environment.CurrentDirectory;
 
-        // Fallback: ./.treegen.json if --config not provided
+        // Fallback: ./.contextgen.json if --config not provided
         if (string.IsNullOrWhiteSpace(configPath))
         {
-            var fallback = Path.Combine(Environment.CurrentDirectory, ".treegen.json");
+            var fallback = Path.Combine(Environment.CurrentDirectory, ".contextgen.json");
             if (File.Exists(fallback))
             {
                 try
@@ -56,7 +56,7 @@ class Program
                 }
                 catch (Exception ex)
                 {
-                    Console.Error.WriteLine($"Failed to load fallback config '.treegen.json': {ex.Message}");
+                    Console.Error.WriteLine($"Failed to load fallback config '.contextgen.json': {ex.Message}");
                     return 2;
                 }
             }
@@ -93,7 +93,7 @@ class Program
         {
             // Map config -> options + resolved root (with CLI override)
             var (mapped, historyOptions, resolvedRoot, diagnostics) =
-                TreeConfigMapper.Map(dto, profile, configDir, rootOverride);
+                ContextConfigMapper.Map(dto, profile, configDir, rootOverride);
 
             options = mapped;
             history = historyOptions;
