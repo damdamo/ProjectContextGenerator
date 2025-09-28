@@ -19,7 +19,9 @@ pasting into PRs, issues, or LLM prompts without manual cleanup.
     the minimal folder structure.
 -   **Flexible modes:** Combine `DirectoriesOnly` with include patterns
     to list only the directory skeleton for specific file types
-    (e.g. "all folders that contain JSON files").
+    (e.g. "all folders that contain JSON files").
+-   **History mode:** Optionally append recent Git commit messages
+    (titles or titles+body) after the tree for extra project context.
 -   **Clean architecture:** Domain vs Infrastructure separation;
     testable components; fake filesystem for deterministic tests.
 -   **CI-ready:** GitHub Actions workflow included
@@ -57,6 +59,7 @@ pasting into PRs, issues, or LLM prompts without manual cleanup.
 ## Requirements
 
 -   **.NET 8 SDK**
+-   **Git** (in `PATH`) if using the `history` feature.
 
 ---
 
@@ -84,17 +87,30 @@ overridden with `--config`.
 
 Example:
 
-``` jsonc
+```jsonc
 {
   "version": 1,
   "root": ".",
   "maxDepth": 3,
   "exclude": ["bin/", "obj/", ".git/", "node_modules/"],
   "gitIgnore": "Nested",
+  "history": {
+    "last": 20,
+    "maxBodyLines": 6,
+    "detail": "TitlesOnly",
+    "includeMerges": false
+  },
   "profiles": {
     "fast": { "maxDepth": 1, "directoriesOnly": true },
-    "full": { "maxDepth": -1, "collapseSingleChildDirectories": false },
-    "csharp": { "include": ["*.cs", "*.csproj"], "exclude": ["bin/", "obj/"] }
+    "full": {
+      "maxDepth": -1,
+      "collapseSingleChildDirectories": false,
+      "history": { "detail": "TitleAndBody" }
+    },
+    "csharp": {
+      "include": ["*.cs", "*.csproj"],
+      "exclude": ["bin/", "obj/"]
+    }
   }
 }
 ```
@@ -102,11 +118,12 @@ Example:
 ### Profiles
 
 Profiles are partial configs that override the root config when
-selected:
+selected. History settings can also be overridden per-profile.
 
-``` bash
+```bash
 dotnet run --project ProjectContextGenerator.Console --profile fast
 dotnet run --project ProjectContextGenerator.Console --profile csharp
+dotnet run --project ProjectContextGenerator.Console --profile full
 ```
 
 ### Root resolution
@@ -137,47 +154,51 @@ dotnet run --project ProjectContextGenerator.Console --config ./configs/custom.j
 dotnet run --project ProjectContextGenerator.Console --root ../other-repo
 ```
 
-### Options overview
+---
+
+## Options overview
 
 -   `MaxDepth`: `0` = root only; `1` = root + direct children; `-1` =
     unlimited.
 -   `IncludeGlobs` / `ExcludeGlobs`: optional glob lists (e.g.,
     `["**/*.cs"]`, `["**/bin/**"]`).
 -   `SortDirectoriesFirst`: default `true`.
--   `CollapseSingleChildDirectories`: default `true` (render `a/b/c/` as
-    `a/b/c/`).
+-   `CollapseSingleChildDirectories`: default `true`.
 -   `MaxItemsPerDirectory`: optional cap with placeholder node
     (`… (+N more)`).
 -   `GitIgnore`: `None` \| `RootOnly` \| `Nested`.
 -   `GitIgnoreFileName`: typically `".gitignore"`.
 -   `DirectoriesOnly`: default `false`.
 
-### Combinations
+---
 
--   **Files only**:
+## History
 
-    ``` json
-    { "include": ["*.json"] }
-    ```
+When enabled, a block of recent Git commits is appended after the tree
+output. This is useful to give additional context about the latest
+changes in a repository.
 
-    → shows only `.json` files and their parent folders.
+### History options
 
--   **DirectoriesOnly + file includes**:
+-   `Last`: number of commits to show. Default `20`. `0` disables
+    history.
+-   `MaxBodyLines`: max number of body lines per commit (after trimming
+    empties). Default `6`.
+-   `Detail`:
+    -   `"TitlesOnly"` (default): only show commit titles.
+    -   `"TitleAndBody"`: show title and body lines (indented).
+-   `IncludeMerges`: if `true`, merge commits are included. Default
+    `false`.
 
-    ``` json
-    { "directoriesOnly": true, "include": ["*.json"] }
-    ```
+### Example output
 
-    → shows only the folder skeleton containing at least one `.json`
-    file.
-
--   **Exclude wins over include**:\
-    Even if `include: ["*.cs"]`, any path under `exclude: ["bin/"]` is
-    pruned.
-
--   **CollapseSingleChildDirectories**:\
-    Useful for deep nested chains:\
-    `src/utils/helpers/core/ → File.cs`
+```markdown
+## Recent Changes (last 5)
+- feat: add history support
+  parses commits using git log
+  renders Markdown or PlainText
+- fix: handle Windows line endings
+```
 
 ---
 
@@ -199,7 +220,7 @@ A path is included only if **all three** checks pass.
 -   **Anchored** patterns (`/pattern`) relative to repo root (RootOnly)
     or containing folder (Nested).\
 -   **Character classes** supported: `[abc]`, `[a-z]`, `[!abc]`.\
--   **Parent un-ignore required**: e.g. `!bin/` then `!bin/keep/`.
+-   **Parent un-ignore required**: e.g. `!bin/` then `!bin/keep/`.
 
 Note: `.git/` itself is usually not in `.gitignore`. Exclude via
 `ExcludeGlobs` instead.
@@ -211,13 +232,17 @@ Note: `.git/` itself is usually not in `.gitignore`. Exclude via
 -   **Markdown**: human-friendly tree (folders end with `/`).\
 -   **PlainText**: simple ASCII output.\
 
+When history is enabled, the commit block is rendered in the same format
+as the tree (Markdown or PlainText).
+
 ---
 
 ## Testing
 
--   Deterministic unit tests using `FakeFileSystem`.\
+-   Deterministic unit tests using `FakeFileSystem` and
+    `FakeProcessRunner`.\
 -   Coverage includes globbing, config mapping, traversal semantics,
-    renderer stability, and `.gitignore`.
+    `.gitignore`, and history rendering/parsing.
 
 Run:
 
@@ -229,9 +254,10 @@ dotnet test
 
 ## Contributing
 
-Contributions are welcome. Please: - Keep public APIs documented (XML
-comments). - Add tests for new behavior. - Follow the folder/namespace
-conventions.
+Contributions are welcome. Please:
+- Keep public APIs documented (XML comments).
+- Add tests for new behavior.
+- Follow the folder/namespace conventions.
 
 ---
 
