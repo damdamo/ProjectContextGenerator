@@ -74,6 +74,17 @@ namespace ProjectContextGenerator.Tests.Fakes
             return _fileContents.TryGetValue(p, out var content) ? content : string.Empty;
         }
 
+        public void SetFileContent(string path, string content)
+        {
+            var p = NormFile(path);
+            if (!_files.Contains(p))
+            {
+                throw new FileNotFoundException($"Cannot set content: file not registered '{path}'");
+            }
+
+            _fileContents[p] = content;
+        }
+
         // Helpers
         private static string NormDir(string p)
         {

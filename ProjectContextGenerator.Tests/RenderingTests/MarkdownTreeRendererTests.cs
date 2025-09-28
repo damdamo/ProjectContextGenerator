@@ -8,14 +8,14 @@ namespace ProjectContextGenerator.Tests.RenderingTests
         [Fact]
         public void Renders_without_bold_and_with_trailing_slash_for_folders()
         {
-            var tree = new DirectoryNode("root",
-            [
-                new DirectoryNode("Abstractions",
+            var tree = new DirectoryNode("root", "",
                 [
-                    new FileNode("IFileSystem.cs")
-                ]),
-                new FileNode("root.csproj")
-            ]);
+                    new DirectoryNode("Abstractions", "Abstractions",
+                        [
+                            new FileNode("IFileSystem.cs", "Abstractions/IFileSystem.cs")
+                        ]),
+                    new FileNode("root.csproj", "root.csproj")
+                ]);
 
             var md = new MarkdownTreeRenderer().Render(tree);
 

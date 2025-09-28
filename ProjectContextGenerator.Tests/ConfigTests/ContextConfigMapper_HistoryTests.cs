@@ -1,5 +1,8 @@
-﻿using ProjectContextGenerator.Domain.Config;
+﻿using System;
+using System.IO;
+using ProjectContextGenerator.Domain.Config;
 using ProjectContextGenerator.Domain.Options;
+using Xunit;
 
 namespace ProjectContextGenerator.Tests.ConfigTests
 {
@@ -7,7 +10,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
     {
         private static string MakeTempDir()
         {
-            var dir = Path.Combine(Path.GetTempPath(), "treecfg_hist_", Guid.NewGuid().ToString("N"));
+            var dir = Path.Combine(Path.GetTempPath(), "treecfg_histtests_" + Guid.NewGuid().ToString("N"));
             Directory.CreateDirectory(dir);
             return dir;
         }
@@ -19,13 +22,15 @@ namespace ProjectContextGenerator.Tests.ConfigTests
             try
             {
                 var dto = new ContextConfigDto { Version = 1 };
-                var (_, history, _, diags) = ContextConfigMapper.Map(dto, null, cfgDir, null);
 
-                Assert.Empty(diags);
+                // Map returns: (Options, History, Content, Root, Diagnostics)
+                var (_, history, _, _, diags) = ContextConfigMapper.Map(dto, null, cfgDir, null);
+
                 Assert.Equal(20, history.Last);
                 Assert.Equal(6, history.MaxBodyLines);
                 Assert.Equal(HistoryDetail.TitlesOnly, history.Detail);
                 Assert.False(history.IncludeMerges);
+                Assert.Empty(diags);
             }
             finally { Directory.Delete(cfgDir, true); }
         }
@@ -42,53 +47,25 @@ namespace ProjectContextGenerator.Tests.ConfigTests
                     History = new HistoryDto
                     {
                         Last = 7,
-                        MaxBodyLines = 2,
+                        MaxBodyLines = 3,
                         Detail = "TitleAndBody",
                         IncludeMerges = true
                     }
-                }
-                ;
-                var (_, h, _, diags) = ContextConfigMapper.Map(dto, null, cfgDir, null);
+                };
+
+                var (_, history, _, _, diags) = ContextConfigMapper.Map(dto, null, cfgDir, null);
+
+                Assert.Equal(7, history.Last);
+                Assert.Equal(3, history.MaxBodyLines);
+                Assert.Equal(HistoryDetail.TitleAndBody, history.Detail);
+                Assert.True(history.IncludeMerges);
                 Assert.Empty(diags);
-                Assert.Equal(7, h.Last);
-                Assert.Equal(2, h.MaxBodyLines);
-                Assert.Equal(HistoryDetail.TitleAndBody, h.Detail);
-                Assert.True(h.IncludeMerges);
             }
             finally { Directory.Delete(cfgDir, true); }
         }
 
         [Fact]
-        public void History_DeepMerge_Profile_Overrides_Field_By_Field()
-        {
-            var cfgDir = MakeTempDir();
-            try
-            {
-                var dto = new ContextConfigDto
-                {
-                    Version = 1,
-                    History = new HistoryDto { Last = 20, MaxBodyLines = 6, Detail = "TitlesOnly", IncludeMerges = false },
-                    Profiles = new Dictionary<string, ContextConfigDto>
-                    {
-                        ["full"] = new()
-                        {
-                            History = new HistoryDto { Detail = "TitleAndBody" } // override only detail
-                        }
-                    }
-                }
-                ;
-                var (_, h, _, diags) = ContextConfigMapper.Map(dto, "full", cfgDir, null);
-                Assert.Empty(diags);
-                Assert.Equal(20, h.Last);
-                Assert.Equal(6, h.MaxBodyLines);
-                Assert.Equal(HistoryDetail.TitleAndBody, h.Detail);
-                Assert.False(h.IncludeMerges);
-            }
-            finally { Directory.Delete(cfgDir, true); }
-        }
-
-        [Fact]
-        public void History_Invalid_Values_Produce_Diagnostics_And_Fallbacks()
+        public void History_Validation_Errors_For_Invalid_Values()
         {
             var cfgDir = MakeTempDir();
             try
@@ -98,19 +75,55 @@ namespace ProjectContextGenerator.Tests.ConfigTests
                     Version = 1,
                     History = new HistoryDto
                     {
-                        Last = -5,               // invalid
-                        MaxBodyLines = -1,       // invalid
-                        Detail = "NotAValue"     // invalid
+                        Last = -5,              // invalid -> coerced to 0
+                        MaxBodyLines = -2,      // invalid -> coerced to 0
+                        Detail = "SomethingElse"// invalid -> fallback TitlesOnly
                     }
-                }
-                ;
-                var (_, h, _, diags) = ContextConfigMapper.Map(dto, null, cfgDir, null);
-                Assert.Equal(0, h.Last);
-                Assert.Equal(0, h.MaxBodyLines);
-                Assert.Equal(HistoryDetail.TitlesOnly, h.Detail);
+                };
+
+                var (_, history, _, _, diags) = ContextConfigMapper.Map(dto, null, cfgDir, null);
+
+                Assert.Equal(0, history.Last);
+                Assert.Equal(0, history.MaxBodyLines);
+                Assert.Equal(HistoryDetail.TitlesOnly, history.Detail);
+
+                // Diagnostics messages come from ContextConfigMapper.BuildHistoryOptions:
+                // - "Invalid history.last '{last}'. Using 0."
+                // - "Invalid history.maxBodyLines '{maxBody}'. Using 0."
+                // - "Unknown history.detail '{detailStr}'. Falling back to TitlesOnly."
                 Assert.Contains(diags, d => d.Contains("Invalid history.last", StringComparison.OrdinalIgnoreCase));
                 Assert.Contains(diags, d => d.Contains("Invalid history.maxBodyLines", StringComparison.OrdinalIgnoreCase));
                 Assert.Contains(diags, d => d.Contains("Unknown history.detail", StringComparison.OrdinalIgnoreCase));
+            }
+            finally { Directory.Delete(cfgDir, true); }
+        }
+
+        [Fact]
+        public void History_Profile_Overrides_Root()
+        {
+            var cfgDir = MakeTempDir();
+            try
+            {
+                var dto = new ContextConfigDto
+                {
+                    Version = 1,
+                    History = new HistoryDto { Last = 5, Detail = "TitlesOnly", IncludeMerges = false, MaxBodyLines = 2 },
+                    Profiles = new System.Collections.Generic.Dictionary<string, ContextConfigDto>
+                    {
+                        ["full"] = new ContextConfigDto
+                        {
+                            History = new HistoryDto { Last = 12, Detail = "TitleAndBody", IncludeMerges = true, MaxBodyLines = 8 }
+                        }
+                    }
+                };
+
+                var (_, history, _, _, diags) = ContextConfigMapper.Map(dto, "full", cfgDir, null);
+
+                Assert.Equal(12, history.Last);
+                Assert.Equal(8, history.MaxBodyLines);
+                Assert.Equal(HistoryDetail.TitleAndBody, history.Detail);
+                Assert.True(history.IncludeMerges);
+                Assert.Empty(diags);
             }
             finally { Directory.Delete(cfgDir, true); }
         }

@@ -29,7 +29,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
                     Exclude = ["bin/", "obj/", ".git/"]
                 };
 
-                var (options, _, root, diags) = ContextConfigMapper.Map(dto, profileName: null, configDirectory: cfgDir, rootOverride: null);
+                var (options, _, _, root, diags) = ContextConfigMapper.Map(dto, profileName: null, configDirectory: cfgDir, rootOverride: null);
 
                 Assert.Equal(1, dto.Version);
                 Assert.Empty(diags);
@@ -58,7 +58,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
             try
             {
                 var dto = new ContextConfigDto { Version = 1, Root = "relative/from/config" };
-                var (opt, _, root, diags) = ContextConfigMapper.Map(dto, null, cfgDir1, null);
+                var (opt, _, _, root, diags) = ContextConfigMapper.Map(dto, null, cfgDir1, null);
                 var expected = Path.GetFullPath("relative/from/config", cfgDir1);
                 Assert.Equal(expected, root);
                 Assert.Empty(diags);
@@ -70,7 +70,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
             try
             {
                 var dto = new ContextConfigDto { Version = 1, Root = "relative/from/config" };
-                var (opt, _, root, diags) = ContextConfigMapper.Map(dto, null, cfgDir2, rootOverride: "relative/from/cli");
+                var (opt, _, _, root, diags) = ContextConfigMapper.Map(dto, null, cfgDir2, rootOverride: "relative/from/cli");
                 var expected = Path.GetFullPath("relative/from/cli", Environment.CurrentDirectory);
                 Assert.Equal(expected, root);
                 Assert.Empty(diags);
@@ -85,7 +85,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
                 var absCli = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "cliRoot_" + Guid.NewGuid().ToString("N")));
                 var dto2 = new ContextConfigDto { Version = 1, Root = absConfig };
 
-                var (opt, _, root, diags) = ContextConfigMapper.Map(dto2, null, cfgDir3, absCli);
+                var (opt, _, _, root, diags) = ContextConfigMapper.Map(dto2, null, cfgDir3, absCli);
                 Assert.Equal(Path.GetFullPath(absCli), root);
                 Assert.Empty(diags);
             }
@@ -108,7 +108,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
                     }
                 };
 
-                var (options, _, root, diags) = ContextConfigMapper.Map(dto, profileName: "does-not-exist", configDirectory: cfgDir, rootOverride: null);
+                var (options, _, _, _, diags) = ContextConfigMapper.Map(dto, profileName: "does-not-exist", configDirectory: cfgDir, rootOverride: null);
 
                 Assert.Contains(diags, d => d.Contains("Profile 'does-not-exist' not found", StringComparison.OrdinalIgnoreCase));
                 Assert.Equal(2, options.MaxDepth); // fallback to root config
@@ -123,7 +123,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
             try
             {
                 var dto = new ContextConfigDto { Version = 42, MaxDepth = 3 };
-                var (options, _, _, diags) = ContextConfigMapper.Map(dto, null, cfgDir, null);
+                var (options, _, _, _, diags) = ContextConfigMapper.Map(dto, null, cfgDir, null);
 
                 Assert.Contains(diags, d => d.Contains("Unsupported config version '42'", StringComparison.OrdinalIgnoreCase));
                 Assert.Equal(3, options.MaxDepth);
@@ -142,7 +142,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
             try
             {
                 var dto = new ContextConfigDto { Version = 1, MaxDepth = input };
-                var (options, _, _, diags) = ContextConfigMapper.Map(dto, null, cfgDir, null);
+                var (options, _, _, _, diags) = ContextConfigMapper.Map(dto, null, cfgDir, null);
 
                 Assert.Equal(expected, options.MaxDepth);
                 if (input < -1)
@@ -161,13 +161,13 @@ namespace ProjectContextGenerator.Tests.ConfigTests
             {
                 // invalid negative -> ignored with diagnostic
                 var dto = new ContextConfigDto { Version = 1, MaxItemsPerDirectory = -5 };
-                var (o1, _, _, d1) = ContextConfigMapper.Map(dto, null, cfgDir, null);
+                var (o1, _, _, _, d1) = ContextConfigMapper.Map(dto, null, cfgDir, null);
                 Assert.Null(o1.MaxItemsPerDirectory);
                 Assert.Contains(d1, d => d.Contains("Invalid maxItemsPerDirectory", StringComparison.OrdinalIgnoreCase));
 
                 // valid
                 var dto2 = new ContextConfigDto { Version = 1, MaxItemsPerDirectory = 10 };
-                var (o2, _, _, d2) = ContextConfigMapper.Map(dto2, null, cfgDir, null);
+                var (o2, _, _, _, d2) = ContextConfigMapper.Map(dto2, null, cfgDir, null);
                 Assert.Equal(10, o2.MaxItemsPerDirectory);
                 Assert.DoesNotContain(d2, d => d.Contains("Invalid maxItemsPerDirectory", StringComparison.OrdinalIgnoreCase));
             }
@@ -181,7 +181,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
             try
             {
                 var dto = new ContextConfigDto(); // everything null
-                var (o, _, root, diags) = ContextConfigMapper.Map(dto, null, cfgDir, null);
+                var (o, _, _, root, diags) = ContextConfigMapper.Map(dto, null, cfgDir, null);
 
                 Assert.Equal(4, o.MaxDepth); // default
                 Assert.True(o.SortDirectoriesFirst);
@@ -203,7 +203,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
             var cfgDir = MakeTempDir();
             try
             {
-                // Le profil remplace les listes si elles sont renseignées (pas de merge implicite).
+                // The profile replaces lists when set (no implicit concatenation).
                 var dto = new ContextConfigDto
                 {
                     Version = 1,
@@ -219,7 +219,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
                     }
                 };
 
-                var (o, _, _, diags) = ContextConfigMapper.Map(dto, "csharp", cfgDir, null);
+                var (o, _, _, _, diags) = ContextConfigMapper.Map(dto, "csharp", cfgDir, null);
 
                 Assert.NotNull(o.IncludeGlobs);
                 Assert.DoesNotContain(o.IncludeGlobs!, g => g.EndsWith(".md", StringComparison.OrdinalIgnoreCase));
