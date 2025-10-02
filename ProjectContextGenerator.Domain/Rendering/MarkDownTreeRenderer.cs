@@ -16,6 +16,8 @@ namespace ProjectContextGenerator.Domain.Rendering
         private readonly IFileSystem? _fs;
         private readonly string _rootPath = "";
         private readonly ContentOptions _content = new();
+        private readonly IPathMatcher? _contentIncludeMatcher;
+        private int _renderedContentFiles = 0;
 
         /// <summary>
         /// Default constructor for compatibility or tests that only require the tree layout.
@@ -30,11 +32,16 @@ namespace ProjectContextGenerator.Domain.Rendering
         /// <param name="fs">File system used to read file contents.</param>
         /// <param name="rootPath">Absolute path of the scan root used to resolve file paths.</param>
         /// <param name="content">Options controlling file content rendering.</param>
-        public MarkdownTreeRenderer(IFileSystem fs, string rootPath, ContentOptions content)
+        /// <param name="contentIncludeMatcher">
+        /// Optional matcher restricting which visible files have their content rendered.
+        /// When null, no file content is rendered even if <paramref name="content"/> is enabled.
+        /// </param>
+        public MarkdownTreeRenderer(IFileSystem fs, string rootPath, ContentOptions content, IPathMatcher? contentIncludeMatcher = null)
         {
             _fs = fs;
             _rootPath = rootPath;
             _content = content;
+            _contentIncludeMatcher = contentIncludeMatcher;
         }
 
         /// <inheritdoc />
@@ -63,9 +70,16 @@ namespace ProjectContextGenerator.Domain.Rendering
 
                     case FileNode f:
                         sb.AppendLine($"{indent}- {f.Name}");
-                        if (_content.Enabled && _fs is not null && !string.IsNullOrEmpty(_rootPath) && f.RelativePath != "__ellipsis__")
+                        if (_content.Enabled &&
+                            _fs is not null &&
+                            !string.IsNullOrEmpty(_rootPath) &&
+                            f.RelativePath != "__ellipsis__" &&
+                            _contentIncludeMatcher is not null &&
+                            (_content.MaxFiles is null || _renderedContentFiles < _content.MaxFiles) &&
+                            _contentIncludeMatcher.IsMatch(f.RelativePath, isDirectory: false))
                         {
                             RenderFileContentBlock(f, level + 1, sb);
+                            _renderedContentFiles++;
                         }
                         break;
                 }
@@ -126,7 +140,6 @@ namespace ProjectContextGenerator.Domain.Rendering
             int lineNo = 1;
             foreach (var line in kept)
             {
-                // Do NOT prepend fenceIndent here; avoid injecting extra leading spaces into code
                 if (_content.ShowLineNumbers)
                     sb.Append(lineNo).Append(": ").AppendLine(line);
                 else

@@ -33,6 +33,10 @@
     /// Optional global cap on the number of files for which content will be rendered.
     /// Null means no global cap.
     /// </param>
+    /// <param name="Include">
+    /// Glob patterns selecting which visible files should have their content rendered.
+    /// If null or empty, no file content is rendered even when <see cref="Enabled"/> is true.
+    /// </param>
     public sealed record ContentOptions(
         bool Enabled = false,
         int IndentDepth = 1,
@@ -41,6 +45,7 @@
         int MaxLinesPerFile = 300,
         bool ShowLineNumbers = false,
         int ContextPadding = 1,
-        int? MaxFiles = null
+        int? MaxFiles = null,
+        IReadOnlyList<string>? Include = null
     );
 }

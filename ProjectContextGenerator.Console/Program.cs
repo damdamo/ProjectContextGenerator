@@ -123,8 +123,14 @@ class Program
 
         var builder = new TreeBuilder(fs, filter);
 
+        IPathMatcher? contentIncludeMatcher = null;
+        if (content.Enabled && content.Include is { Count: > 0 })
+        {
+            contentIncludeMatcher = new GlobPathMatcher(content.Include, excludeGlobs: null);
+        }
+
         // Use the content-aware Markdown renderer (interface remains ITreeRenderer).
-        var renderer = new MarkdownTreeRenderer(fs, rootPath, content);
+        var renderer = new MarkdownTreeRenderer(fs, rootPath, content, contentIncludeMatcher);
 
         // Build tree and render
         var tree = builder.Build(rootPath, scan);

@@ -1,30 +1,25 @@
 {
   "version": 1,
   "root": ".",
-  "maxDepth": 3,
-  "exclude": [
-    "bin/",
-    "obj/",
-    ".git/",
-    "node_modules/",
-    ".github"
-  ],
-  "gitIgnore": "Nested",
-  "directoriesOnly": false,
+  "maxDepth": 4,
+  "include": [ "**/*" ],
+  "exclude": [ "**/bin/**", "**/obj/**", ".git/" ],
+  "gitIgnore": "RootOnly",
+  "sortDirectoriesFirst": true,
+  "collapseSingleChildDirectories": true,
 
   "content": {
     "enabled": false,
     "indentDepth": 1,
-    "tabWidth": 2,
+    "tabWidth": 4,
     "detectTabWidth": true,
     "maxLinesPerFile": 300,
     "showLineNumbers": false,
-    "contextPadding": 2,
-    "maxFiles": 100
+    "contextPadding": 1
   },
 
   "history": {
-    "enabled": true,
+    "enabled": false,
     "last": 20,
     "maxBodyLines": 6,
     "detail": "TitlesOnly",
@@ -32,43 +27,76 @@
   },
 
   "profiles": {
-    "fast": {
-      "maxDepth": 3,
+    "tree-only": {
+      "content": { "enabled": false },
+      "history": { "enabled": false }
+    },
+
+    "directories-only": {
       "directoriesOnly": true,
-      "content": {
-        "enabled": false
-      },
-      "history": {
-        "enabled": false
-      }
+      "content": { "enabled": false },
+      "history": { "enabled": false }
     },
-    "full": {
-      "maxDepth": -1,
-      "collapseSingleChildDirectories": false,
-      "history": {
-        "detail": "TitleAndBody"
-      },
+
+    "readme-focus": {
       "content": {
         "enabled": true,
-        "indentDepth": 1
-      }
+        "include": [ "README.md" ],
+        "indentDepth": -1
+      },
+      "history": { "enabled": false }
     },
+
     "csharp-essential": {
-      "include": [ "README.md", "**/*.csproj" ],
+      "exclude": [ "**/bin/**", "**/obj/**", ".git/" ],
       "content": {
         "enabled": true,
-        "indentDepth": -1,
-        "maxLinesPerFile": -1
+        "include": [ "README.md", "**/Abstractions/**/*.cs", "**/I*.cs" ],
+        "indentDepth": 1,
+        "contextPadding": 1
       },
+      "history": { "enabled": false }
+    },
+
+    "configs-and-docs": {
+      "include": [ "**/*.md", "**/*.json", "**/*.yml", "**/.editorconfig", "**/.gitignore" ],
+      "exclude": [ "**/bin/**", "**/obj/**", ".git/" ],
+      "content": {
+        "enabled": true,
+        "include": [ "**/*.md", "**/*.json", "**/*.yml", "**/.editorconfig", "**/.gitignore" ],
+        "indentDepth": -1,
+        "maxLinesPerFile": 200
+      },
+      "history": { "enabled": false }
+    },
+
+    "history-title-only": {
       "history": {
-        "detail": "TitleAndBody"
+        "enabled": true,
+        "last": 20,
+        "maxBodyLines": 0,
+        "detail": "TitlesOnly",
+        "includeMerges": false
       }
     },
-    "csharp-tests": {
-      "include": [ "*Tests/" ],
+
+    "history-detailed": {
+      "history": {
+        "enabled": true,
+        "last": 20,
+        "maxBodyLines": 6,
+        "detail": "TitleAndBody",
+        "includeMerges": false
+      }
+    },
+
+    "test-oriented": {
+      "include": [
+        "**/*.Tests/**"
+      ],
       "content": {
         "enabled": true,
-        "indentDepth": 1
+        "include": ["*.cs"]
       }
     }
   }

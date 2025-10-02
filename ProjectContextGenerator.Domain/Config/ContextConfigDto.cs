@@ -53,6 +53,13 @@
 
         /// <summary>Optional global cap on the number of files with rendered content.</summary>
         public int? MaxFiles { get; init; }
+
+        /// <summary>
+        /// Glob patterns selecting which visible files should have their content rendered.
+        /// If null or empty, no file content is rendered even when <see cref="Enabled"/> is true.
+        /// Examples: <c>["README.md", "**/*.md", "**/I*.cs"]</c>.
+        /// </summary>
+        public IReadOnlyList<string>? Include { get; init; }
     }
 
     /// <summary>

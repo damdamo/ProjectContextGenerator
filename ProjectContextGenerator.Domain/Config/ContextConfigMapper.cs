@@ -101,7 +101,7 @@ namespace ProjectContextGenerator.Domain.Config
                 CollapseSingleChildDirectories = profile.CollapseSingleChildDirectories ?? root.CollapseSingleChildDirectories,
                 MaxItemsPerDirectory = profile.MaxItemsPerDirectory ?? root.MaxItemsPerDirectory,
                 DirectoriesOnly = profile.DirectoriesOnly ?? root.DirectoriesOnly,
-                Profiles = root.Profiles, // keep original profiles intact
+                Profiles = root.Profiles,
                 History = MergeHistoryDto(root.History, profile.History),
                 Content = MergeContentDto(root.Content, profile.Content)
             };
@@ -174,7 +174,6 @@ namespace ProjectContextGenerator.Domain.Config
         /// </summary>
         private static HistoryOptions BuildHistoryOptions(HistoryDto? dto, List<string> diagnostics)
         {
-            // Enabled defaults to true for backward compatibility.
             var enabled = dto?.Enabled ?? true;
 
             var last = dto?.Last ?? 20;
@@ -237,7 +236,19 @@ namespace ProjectContextGenerator.Domain.Config
             int? maxFiles = dto.MaxFiles;
             if (maxFiles is int mf && mf < 0) { diagnostics.Add($"Invalid content.maxFiles '{mf}'. Ignoring."); maxFiles = null; }
 
-            return new ContentOptions(enabled, indentDepth, tabWidth, detect, maxLines, showLineNumbers, contextPadding, maxFiles);
+            var include = NormalizePatterns(dto.Include);
+
+            return new ContentOptions(
+                Enabled: enabled,
+                IndentDepth: indentDepth,
+                TabWidth: tabWidth,
+                DetectTabWidth: detect,
+                MaxLinesPerFile: maxLines,
+                ShowLineNumbers: showLineNumbers,
+                ContextPadding: contextPadding,
+                MaxFiles: maxFiles,
+                Include: include
+            );
         }
 
         private static HistoryDto? MergeHistoryDto(HistoryDto? root, HistoryDto? profile)
@@ -271,7 +282,8 @@ namespace ProjectContextGenerator.Domain.Config
                 MaxLinesPerFile = profile.MaxLinesPerFile ?? root.MaxLinesPerFile,
                 ShowLineNumbers = profile.ShowLineNumbers ?? root.ShowLineNumbers,
                 ContextPadding = profile.ContextPadding ?? root.ContextPadding,
-                MaxFiles = profile.MaxFiles ?? root.MaxFiles
+                MaxFiles = profile.MaxFiles ?? root.MaxFiles,
+                Include = profile.Include ?? root.Include
             };
         }
     }
