@@ -2,7 +2,7 @@
   "profiles": {
     "ProjectContextGenerator.Console": {
       "commandName": "Project",
-      "commandLineArgs": "ProjectContextGenerator.Console --root \"C:\\Damien\\Dev\\C#\\ProjectContextGenerator\" --profile \"csharp-essential\""
+      "commandLineArgs": "ProjectContextGenerator.Console --root \"C:\\Damien\\Dev\\C#\\ProjectContextGenerator\" --profile \"tree-only\""
     }
   }
 }

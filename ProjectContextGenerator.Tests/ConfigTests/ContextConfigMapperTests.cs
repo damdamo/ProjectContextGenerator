@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using ProjectContextGenerator.Domain.Config;
+﻿using ProjectContextGenerator.Domain.Config;
 using ProjectContextGenerator.Domain.Options;
-using Xunit;
 
 namespace ProjectContextGenerator.Tests.ConfigTests
 {
@@ -180,7 +176,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
             var cfgDir = MakeTempDir();
             try
             {
-                var dto = new ContextConfigDto(); // everything null
+                var dto = new ContextConfigDto(); // everything null -> treated as "empty" config
                 var (o, _, _, root, diags) = ContextConfigMapper.Map(dto, null, cfgDir, null);
 
                 Assert.Equal(4, o.MaxDepth); // default
@@ -190,12 +186,18 @@ namespace ProjectContextGenerator.Tests.ConfigTests
                 Assert.Equal(".gitignore", o.GitIgnoreFileName);
                 Assert.False(o.DirectoriesOnly);
                 Assert.Null(o.IncludeGlobs);
-                Assert.Null(o.ExcludeGlobs);
+
+                // New behavior: default safe excludes injected for empty config
+                var expectedExcludes = new[] { "**/bin/**", "**/obj/**", "**/.git/**", "**/node_modules/**" };
+                Assert.NotNull(o.ExcludeGlobs);
+                Assert.Equal(expectedExcludes, o.ExcludeGlobs);
+
                 Assert.Empty(diags);
                 Assert.Equal(Path.GetFullPath(".", cfgDir), root);
             }
             finally { Directory.Delete(cfgDir, true); }
         }
+
 
         [Fact]
         public void Map_Profile_Merges_ByOverride_NotConcatenation()
@@ -230,6 +232,50 @@ namespace ProjectContextGenerator.Tests.ConfigTests
                 Assert.DoesNotContain(o.ExcludeGlobs!, g => g.Contains("/bin/"));
                 Assert.Contains("**/obj/**", o.ExcludeGlobs!);
                 Assert.Empty(diags);
+            }
+            finally { Directory.Delete(cfgDir, true); }
+        }
+
+        [Fact]
+        public void Map_NonEmptyConfig_DoesNotInject_DefaultExcludes_WhenExcludeMissing()
+        {
+            var cfgDir = MakeTempDir();
+            try
+            {
+                // Non-empty (MaxDepth set) but Exclude is not provided → no default excludes injected
+                var dto = new ContextConfigDto
+                {
+                    Version = 1,
+                    MaxDepth = 3
+                };
+
+                var (o, _, _, _, diags) = ContextConfigMapper.Map(dto, profileName: null, configDirectory: cfgDir, rootOverride: null);
+
+                Assert.Equal(3, o.MaxDepth);
+                Assert.Null(o.ExcludeGlobs);                // <- key assertion: no injected defaults
+                Assert.Empty(diags);
+            }
+            finally { Directory.Delete(cfgDir, true); }
+        }
+
+        [Fact]
+        public void Map_GitIgnore_Unknown_FallsBackToNested_WithDiagnostic()
+        {
+            var cfgDir = MakeTempDir();
+            try
+            {
+                var dto = new ContextConfigDto
+                {
+                    Version = 1,
+                    GitIgnore = "WeirdValue"
+                };
+
+                var (o, _, _, _, diags) = ContextConfigMapper.Map(dto, null, cfgDir, null);
+
+                Assert.Equal(GitIgnoreMode.Nested, o.GitIgnore);
+                Assert.Contains(diags, d =>
+                    d.Contains("Unknown gitIgnore value", StringComparison.OrdinalIgnoreCase) &&
+                    d.Contains("Nested", StringComparison.OrdinalIgnoreCase));
             }
             finally { Directory.Delete(cfgDir, true); }
         }

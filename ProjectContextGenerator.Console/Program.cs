@@ -1,11 +1,7 @@
-﻿// ProjectContextGenerator.Console/Program.cs
-using System;
-using System.IO;
-using ProjectContextGenerator.Domain.Config;
+﻿using ProjectContextGenerator.Domain.Config;
 using ProjectContextGenerator.Domain.Options;
 using ProjectContextGenerator.Domain.Rendering;
 using ProjectContextGenerator.Domain.Services;
-using ProjectContextGenerator.Domain.Models;
 using ProjectContextGenerator.Domain.Abstractions;
 using ProjectContextGenerator.Infrastructure.Config;
 using ProjectContextGenerator.Infrastructure.FileSystem;
@@ -19,6 +15,7 @@ class Program
 {
     /// <summary>
     /// Entry point for the console sample. Loads configuration (with optional profile),
+    /// maps it to runtime options via ContextConfigMapper (even when no config file is present),
     /// builds the directory tree using filtering rules, renders it to Markdown,
     /// and optionally appends a block of recent Git history.
     /// </summary>
@@ -72,35 +69,13 @@ class Program
             }
         }
 
-        // Map configuration to runtime options
-        TreeScanOptions scan;
-        HistoryOptions history;
-        ContentOptions content;
-        string rootPath;
+        // Map configuration to runtime options (even when dto is null)
+        var configToMap = dto ?? new ContextConfigDto();
+        var (scan, history, content, rootPath, diagnostics) =
+            ContextConfigMapper.Map(configToMap, profile, configDir, rootOverride);
 
-        if (dto is null)
-        {
-            // Defaults only if no config is present
-            scan = new TreeScanOptions(ExcludeGlobs: ["**/bin/**", "**/obj/**", "**/node_modules/**", "**/.git/**"]);
-            history = new HistoryOptions(Last: 20, MaxBodyLines: 6, Detail: HistoryDetail.TitlesOnly, IncludeMerges: false);
-            content = new ContentOptions(); // default: Enabled=false
-            rootPath = string.IsNullOrWhiteSpace(rootOverride)
-                ? Environment.CurrentDirectory
-                : Path.GetFullPath(rootOverride, Environment.CurrentDirectory);
-        }
-        else
-        {
-            var (scanOptions, historyOptions, contentOptions, resolvedRoot, diagnostics) =
-                ContextConfigMapper.Map(dto, profile, configDir, rootOverride);
-
-            scan = scanOptions;
-            history = historyOptions;
-            content = contentOptions;
-            rootPath = resolvedRoot;
-
-            foreach (var d in diagnostics)
-                Console.Error.WriteLine($"[warn] {d}");
-        }
+        foreach (var d in diagnostics)
+            Console.Error.WriteLine($"[warn] {d}");
 
         // Build pipeline
         var fs = new SystemIOFileSystem();
@@ -123,14 +98,8 @@ class Program
 
         var builder = new TreeBuilder(fs, filter);
 
-        IPathMatcher? contentIncludeMatcher = null;
-        if (content.Enabled && content.Include is { Count: > 0 })
-        {
-            contentIncludeMatcher = new GlobPathMatcher(content.Include, excludeGlobs: null);
-        }
-
-        // Use the content-aware Markdown renderer (interface remains ITreeRenderer).
-        var renderer = new MarkdownTreeRenderer(fs, rootPath, content, contentIncludeMatcher);
+        // Use the content-aware Markdown renderer
+        var renderer = new MarkdownTreeRenderer(fs, rootPath, content);
 
         // Build tree and render
         var tree = builder.Build(rootPath, scan);
