@@ -186,7 +186,7 @@ namespace ProjectContextGenerator.Tests.ConfigTests
                 Assert.Equal(4, o.MaxDepth); // default
                 Assert.True(o.SortDirectoriesFirst);
                 Assert.True(o.CollapseSingleChildDirectories);
-                Assert.Equal(GitIgnoreMode.RootOnly, o.GitIgnore);
+                Assert.Equal(GitIgnoreMode.Nested, o.GitIgnore);
                 Assert.Equal(".gitignore", o.GitIgnoreFileName);
                 Assert.False(o.DirectoriesOnly);
                 Assert.Null(o.IncludeGlobs);

@@ -138,13 +138,13 @@ namespace ProjectContextGenerator.Domain.Config
         private static GitIgnoreMode ParseGitIgnore(string? value, List<string> diagnostics)
         {
             if (string.IsNullOrWhiteSpace(value))
-                return GitIgnoreMode.RootOnly;
+                return GitIgnoreMode.Nested;
 
             if (Enum.TryParse<GitIgnoreMode>(value, ignoreCase: true, out var mode))
                 return mode;
 
             diagnostics.Add($"Unknown gitIgnore value '{value}'. Falling back to RootOnly.");
-            return GitIgnoreMode.RootOnly;
+            return GitIgnoreMode.Nested;
         }
 
         /// <summary>
@@ -174,7 +174,7 @@ namespace ProjectContextGenerator.Domain.Config
         /// </summary>
         private static HistoryOptions BuildHistoryOptions(HistoryDto? dto, List<string> diagnostics)
         {
-            var enabled = dto?.Enabled ?? true;
+            var enabled = dto?.Enabled ?? false;
 
             var last = dto?.Last ?? 20;
             if (last < 0) { diagnostics.Add($"Invalid history.last '{last}'. Using 0."); last = 0; }

@@ -4,7 +4,7 @@
   "maxDepth": 4,
   "include": [ "**/*" ],
   "exclude": [ "**/bin/**", "**/obj/**", ".git/" ],
-  "gitIgnore": "RootOnly",
+  "gitIgnore": "Nested",
   "sortDirectoriesFirst": true,
   "collapseSingleChildDirectories": true,
 

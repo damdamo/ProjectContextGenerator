@@ -81,7 +81,7 @@ class Program
         if (dto is null)
         {
             // Defaults only if no config is present
-            scan = new TreeScanOptions();
+            scan = new TreeScanOptions(ExcludeGlobs: ["**/bin/**", "**/obj/**", "**/node_modules/**", "**/.git/**"]);
             history = new HistoryOptions(Last: 20, MaxBodyLines: 6, Detail: HistoryDetail.TitlesOnly, IncludeMerges: false);
             content = new ContentOptions(); // default: Enabled=false
             rootPath = string.IsNullOrWhiteSpace(rootOverride)

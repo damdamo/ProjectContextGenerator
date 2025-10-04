@@ -51,7 +51,7 @@
         bool SortDirectoriesFirst = true,
         bool CollapseSingleChildDirectories = true,
         int? MaxItemsPerDirectory = null,
-        GitIgnoreMode GitIgnore = GitIgnoreMode.RootOnly,
+        GitIgnoreMode GitIgnore = GitIgnoreMode.Nested,
         string? GitIgnoreFileName = ".gitignore",
         bool DirectoriesOnly = false
     );
