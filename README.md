@@ -1,25 +1,41 @@
 # ProjectContextGenerator
 
-Create a clean, **shareable context** of your repository in Markdown:
-- A **filtered directory tree** (respects your `.gitignore`).
-- Optional **file content excerpts** (top-level only, or deeper by indentation).
-- Optional **recent Git history** (titles or titles + body).
+A small tool that turns a repository into a clean Markdown context for LLM prompts:
+- a filtered directory tree that respects `.gitignore`
+- targeted file content excerpts selected by patterns and indentation
+- optional recent Git history
 
-It’s perfect for pasting into PRs, issues, or LLM prompts—no manual cleanup.
-
----
-
-## Why this tool?
-
-- **Zero friction**: one file (`.contextgen.json`) + one command.
-- **Readable by default**: directory-first, depth caps, content trimmed by indentation.
-- **Profiles**: pick a preset for the view you need (tree-only, docs, C# essentials, history…).
+Paste the output into your prompt so the model and you talk about the same project, with less back and forth.
 
 ---
 
-## 1-Minute Quickstart
+## Motivation
 
-1) **Add a config** at your repo root: `.contextgen.json`
+Since large language models became part of my workflow, I start most tasks by giving them project context. That works until I need a fresh chat on the same project, or the current chat slows down and I restart, losing everything I curated. I wanted a quick way to rebuild context without copy pasting and pruning by hand.
+
+ProjectContextGenerator collects the main pieces automatically so you can re-establish context in seconds, then add detail only where you need it.
+
+### How the tool helps
+
+1. **Repository structure** gives a tree folder structure of the files and directories.  
+2. **Content excerpts** show only the parts that matter. Selection is driven by file patterns and **indentation**, a simple proxy for structure that works across most languages (by syntax or convention).  
+3. **Recent changes** reuse the git commit messages, similarly to the `.gitignore` to remove irrelevant files out. Commit messages keep the conversation focused on what changed and why.
+
+The exact files you surface will vary by language. For example: `README.md` and `.csproj` for C#, `package.json` for JS/TS, `pyproject.toml` for Python. Profiles help you start with sensible defaults.
+
+### Additional use cases
+
+It may: 
+- **only keep function signatures from a file**
+- **only keep Interface file**
+- **work on one feature**: list the files that define it, with or without content. 
+- **focus on current work**: enable history and include titles or titles plus body to anchor the discussion in what just happened.
+
+---
+
+## Quickstart
+
+1) Add `.contextgen.json` at the repo root
 
 ```jsonc
 {
@@ -28,7 +44,7 @@ It’s perfect for pasting into PRs, issues, or LLM prompts—no manual cleanup.
   "maxDepth": 4,
   "include": [ "**/*" ],
   "exclude": [ "**/bin/**", "**/obj/**", ".git/" ],
-  "gitIgnore": "RootOnly",
+  "gitIgnore": "Nested",
   "sortDirectoriesFirst": true,
   "collapseSingleChildDirectories": true,
 
@@ -54,7 +70,7 @@ It’s perfect for pasting into PRs, issues, or LLM prompts—no manual cleanup.
     "tree-only": { ... },
     "directories-only": { ... },
     "readme-focus": { ... },
-    "csharp-essential": { ... },      // README + *.csproj content + history enabled
+    "csharp-essential": { ... },
     "configs-and-docs": { ... },
     "history-title-only": { ... },
     "history-detailed": { ... },
@@ -63,42 +79,31 @@ It’s perfect for pasting into PRs, issues, or LLM prompts—no manual cleanup.
 }
 ```
 
-> A ready-to-use example file is available in the repo at  
-> **`ProjectContextGenerator.Console/.contextgen.json`**.
+There is a ready-to-use example in `ProjectContextGenerator.Console/.contextgen.json`.
 
-2) **Run** (from the solution root or the console project folder):
+2) Run from the solution root or the console project folder
 
 ```bash
 dotnet run --project ProjectContextGenerator.Console --profile readme-focus
 ```
 
-You’ll get Markdown like:
-
-```markdown
-/your-repo/
-- README.md
-  ```
-  # Your Project
-  Short description...
-  ```
-```
+3) Paste the output into your prompt  
+Add a note like: “Use only the context below. If something is missing, ask for a specific file or path.”
 
 ---
 
-## Built-in Profiles (batteries included)
+## Built-in profiles
 
-These presets cover most day-to-day needs. Use them as-is or as a base for your own.
-
-| Profile               | What you get                                                                 |
-|-----------------------|------------------------------------------------------------------------------|
-| `tree-only`           | Full tree (files + folders). No content. No history.                        |
-| `directories-only`    | Folders only (skeleton). No content. No history.                            |
-| `readme-focus`        | Tree + **README** content (full). No history.                               |
-| `csharp-essential`    | Tree + **README** and **`.csproj`** content **+ recent commits (titles)**.  |
-| `configs-and-docs`    | Tree + **docs/configs** content (`*.md`, `*.json`, `*.yml`, `.gitignore`, etc.). |
-| `history-title-only`  | Tree + **recent commits (titles)**. No content.                             |
-| `history-detailed`    | Tree + **recent commits (titles + body)**. No content.                      |
-| `test-oriented`       | Tree filtered on test folders + **`.cs` content** in tests.                 |
+| Profile               | What it shows                                                                 | When to use                                     |
+|-----------------------|-------------------------------------------------------------------------------|-------------------------------------------------|
+| `tree-only`           | Full tree, no content, no history                                             | Orientation and vocabulary of the repo          |
+| `directories-only`    | Folders only                                                                  | Quick map when you just need structure          |
+| `readme-focus`        | Tree plus full `README` content                                               | Project intro                                   |
+| `csharp-essential`    | Tree plus `README` and `.csproj` content plus recent commit titles            | Onboarding and awareness of recent changes      |
+| `configs-and-docs`    | Tree plus docs and configs (`*.md`, `*.json`, `*.yml`, `.gitignore`, etc.)    | Policy or config work                           |
+| `history-title-only`  | Tree plus recent commit titles                                                | “What changed lately?”                          |
+| `history-detailed`    | Tree plus commit titles and body                                              | Handoffs and change rationales                  |
+| `test-oriented`       | Tree filtered on test folders plus `.cs` content in tests                     | Writing or fixing tests                         |
 
 Use a profile:
 
@@ -108,62 +113,190 @@ dotnet run --project ProjectContextGenerator.Console --profile csharp-essential
 
 ---
 
-## How matching works (plain English)
+## How matching works
 
-You select what appears and what shows content using **file patterns**.  
-If you’ve ever used **`.gitignore`**, you already know the idea:
+You choose what appears in the tree and which files show content using familiar patterns. If you know `.gitignore`, this will feel natural.
 
-- `**/*.cs` → every C# file (any folder).  
-- `bin/` → everything inside any `bin` folder.  
-- `README.md` → any file named exactly `README.md`.  
-- `src/**/I*.cs` → C# files starting with `I` anywhere under `src/`.
+**Pattern cheatsheet**
 
-> Under the hood, the tool uses **`.gitignore`-style logic**: intuitive includes/excludes and `folder/**` for subtrees. You don’t need to be a glob expert—copy the examples and adapt them.
+| Pattern        | Matches                                               |
+|----------------|--------------------------------------------------------|
+| `**/*.cs`      | every C# file                                         |
+| `bin/`         | everything inside any `bin` folder                     |
+| `README.md`    | any file named exactly `README.md`                     |
+| `src/**/I*.cs` | C# files starting with `I` anywhere under `src/`       |
 
-### Two separate decisions (by design)
+Two separate decisions:
 
-1. **What the tree shows** (folders/files)  
-   Controlled by *tree options* (`include` / `exclude`, `.gitignore`, depth, etc.).
+1. What the tree shows using include and exclude, `.gitignore`, depth, and so on.  
+2. Which **visible** files show content using `content.include`.
 
-2. **Which files show their content**  
-   Controlled by **`content.include`** — **a list of patterns**.  
-   If a visible file matches one of these, its content is rendered.
-
-> ✅ Content selection does **not** “revive” files removed from the tree.  
-> If a file isn’t in the tree, it won’t show content (even if `content.include` matches).
+`content.include` does not bring excluded files back into the tree.
 
 ---
 
-## Configuration (practical)
+## Configuration
 
-The tool looks for `.contextgen.json` at the current directory.  
-CLI precedence: `--root` > config `root` > `"."`.
+The tool reads `.contextgen.json` from the current directory.  
+Precedence for root: `--root` argument, then `root` in config, then `"."`.
 
-### Content options (most useful first)
+### Content options
 
-- `content.enabled` (`bool`) — turn content on/off.  
-- **`content.include` (`string[]`)** — **the list that drives content**. Only files matching these patterns will show their content.  
-- `content.indentDepth` (`int`, default `1`) — keep lines with indent ≤ depth. `-1` = keep all.  
-- `content.contextPadding` (`int`, default `1`) — extra lines around kept lines.  
-- `content.maxLinesPerFile` (`int`, default `300`; `-1` = unlimited).  
-- `content.showLineNumbers` (`bool`, default `false`).  
-- `content.tabWidth` (`2/4/8`, default `4`) and `content.detectTabWidth` (`bool`, default `true`).  
-- `content.maxFiles` (`int?`, default `null`) — global cap for how many files render content.
+Show the right parts of code and keep the conversation focused. Indentation tracks scope in most languages, so `indentDepth` gives you a simple dial for how deep to go.
+
+| Key                       | Type (default)   | What it controls                                           | Why it helps in practice                                  | Validation and fallback            |
+|---------------------------|------------------|------------------------------------------------------------|-----------------------------------------------------------|-----------------------------------|
+| `content.enabled`         | bool (false)     | Turn content rendering on or off                           | Keep excerpts targeted instead of dumping everything       |                                   |
+| `content.include`         | string[]         | Which visible files will show content                      | Limits attention to files you want to discuss             | Patterns normalized like the tree |
+| `content.indentDepth`     | int (1)          | Keep lines with indent less than or equal to this level    | 0 for top-level, 1–2 for signatures and interfaces, −1 full | < −1 coerced to −1                |
+| `content.contextPadding`  | int (1)          | Lines kept around retained lines                           | Keeps nearby lines so replies point to the right spot     | < 0 coerced to 0                  |
+| `content.maxLinesPerFile` | int (300)        | Cap lines per file after filtering                         | Avoids very long excerpts that blur the discussion         | 0 or < −1 falls back to 300       |
+| `content.showLineNumbers` | bool (false)     | Add line numbers                                           | Useful when changes are local, for example “edit lines 42–60” |                                   |
+| `content.tabWidth`        | 2 or 4 or 8 (4)  | How many spaces a tab represents for analysis              | Leave detection on unless styles are mixed                | other values fall back to 4       |
+| `content.detectTabWidth`  | bool (true)      | Auto-detect a common indentation width                     | Usually leave this on                                     |                                   |
+| `content.maxFiles`        | int? (null)      | Max number of files that will render content               | Keep the initial selection small when starting fresh       | < 0 ignored (treated as null)     |
+
+Recipes:
+- top-level only: `indentDepth = 0`, `contextPadding = 0`  
+- signatures or interfaces: `indentDepth = 1..2`, `content.include = ["**/I*.cs", "*.csproj", "README.md"]`  
+- full files: `indentDepth = −1`, `maxLinesPerFile = −1` (use with care)
 
 ### History options
 
-- `history.enabled` (`bool`, default `true`)  
-- `history.last` (`int`, default `10`)  
-- `history.detail` (`"TitlesOnly"` or `"TitleAndBody"`, default `TitlesOnly`)  
-- `history.maxBodyLines` (`int`, default `6`)  
-- `history.includeMerges` (`bool`, default `false`)
+Use Git history to keep the discussion tied to what just happened.
+
+| Key                     | Type (default)                   | What it controls                                  | Why it helps                                      | Validation and fallback     |
+|-------------------------|----------------------------------|---------------------------------------------------|---------------------------------------------------|-----------------------------|
+| `history.enabled`       | bool (true in config)            | Turn history on or off                            | Add only when it informs the task                 |                             |
+| `history.last`          | int (10)                         | Number of recent commits to include               | Enough to follow the current thread of work       | < 0 coerced to 0           |
+| `history.detail`        | "TitlesOnly" or "TitleAndBody"   | Whether to show body lines                        | Titles for quick scan, body when rationale matters | unknown falls back to TitlesOnly |
+| `history.maxBodyLines`  | int (6)                          | Max body lines per commit                         | Keeps bodies short and readable                   | < 0 coerced to 0           |
+| `history.includeMerges` | bool (false)                     | Include merge commits                             | Turn on only if merges carry useful context       |                             |
 
 ---
 
-## CLI usage
+## Create your own profile
+
+A profile is a named preset inside `profiles` in `.contextgen.json`. It only overrides what you put inside it. You run it with `--profile`.
+
+### Step 1: Open or create `.contextgen.json`
+
+Put this file at the root of your repo. If you already have one, keep your settings and add the profile below.
+
+### Step 2: Add a profile (example: `csharp-essential`)
+
+This one is aimed at C# projects. It keeps the full tree, renders `README.md` and `.csproj` with shallow content, and appends recent commit titles. If you need more options, check the **Content options** and **History options** tables above.
+
+```jsonc
+{
+  "version": 1,
+  "root": ".",
+  "maxDepth": 4,
+  "include": [ "**/*" ],
+  "exclude": [ "**/bin/**", "**/obj/**", ".git/" ],
+  "gitIgnore": "Nested",
+  "sortDirectoriesFirst": true,
+  "collapseSingleChildDirectories": true,
+
+  "content": {
+    "enabled": false,
+    "indentDepth": 1,
+    "tabWidth": 4,
+    "detectTabWidth": true,
+    "maxLinesPerFile": 300,
+    "showLineNumbers": false,
+    "contextPadding": 1
+  },
+
+  "history": {
+    "enabled": false,
+    "last": 10,
+    "maxBodyLines": 6,
+    "detail": "TitlesOnly",
+    "includeMerges": false
+  },
+
+  "profiles": {
+    "csharp-essential": {
+      // quick onboarding for C# repos
+      "exclude": [ "**/bin/**", "**/obj/**", ".git/" ],
+      "content": {
+        "enabled": true,
+        "include": [ "README.md", "*.csproj" ],
+        "indentDepth": 1,
+        "contextPadding": 1
+      },
+      "history": { "enabled": true } // uses last=10, TitlesOnly from root
+    }
+
+    // ...add more profiles here if you want
+  }
+}
+```
+
+### Step 3: Run it
 
 ```bash
-# Use default config from working dir
+dotnet run --project ProjectContextGenerator.Console --profile csharp-essential
+```
+
+You will get a clean tree, focused content for `README.md` and `.csproj`, and a “Recent Changes” block with commit titles.
+
+### Handy variations
+
+You can tweak `csharp-essential` without touching the rest of the file. Copy one of these into the profile. For the full list of switches, see the option tables above.
+
+**Show commit details too (titles and body)**
+
+```jsonc
+"profiles": {
+  "csharp-essential": {
+    "history": {
+      "enabled": true,
+      "detail": "TitleAndBody",
+      "maxBodyLines": 6
+    }
+  }
+}
+```
+
+**Add another content target, for example interfaces**
+
+```jsonc
+"profiles": {
+  "csharp-essential": {
+    "content": {
+      "enabled": true,
+      "include": [ "README.md", "*.csproj", "**/I*.cs" ],
+      "indentDepth": 1,
+      "contextPadding": 1
+    }
+  }
+}
+```
+
+**Show line numbers in content**
+
+```jsonc
+"profiles": {
+  "csharp-essential": {
+    "content": {
+      "showLineNumbers": true
+    }
+  }
+}
+```
+
+**Tip**  
+If you only want signatures or other surface-level code, keep `indentDepth` at 0 or 1.  
+If you truly need full files, set `indentDepth` to −1.
+
+---
+
+## CLI
+
+```bash
+# Use default config from the working directory
 dotnet run --project ProjectContextGenerator.Console
 
 # Pick a profile
@@ -176,38 +309,54 @@ dotnet run --project ProjectContextGenerator.Console --config ./configs/context.
 dotnet run --project ProjectContextGenerator.Console --root ../other-repo
 ```
 
----
+### Workflow tip: keep a single generic config
 
-## Examples (what the output looks like)
+An easy setup is to maintain one generic `.contextgen.json` in a shared folder and always run with `--config`:
 
-### `directories-only`
-```markdown
-/your-repo/
-- src/
-  - Api/
-  - Domain/
-  - Infrastructure/
-- tests/
-- .github/
+```bash
+# From any repo you want to summarize
+dotnet run --project ProjectContextGenerator.Console \
+  --config ~/context-presets/csharp-essential.json
 ```
 
-### `csharp-essential` (tree + README + .csproj + history titles)
+You can keep several presets in that folder, for example `readme-focus.json`, `history-detailed.json`, or language-specific variants. This avoids duplicating config files across repositories.
+
+Quick reference:
+
+| Flag         | When to use                               |
+|--------------|-------------------------------------------|
+| `--profile`  | pick a preset in the current config       |
+| `--config`   | point to a specific config file           |
+| `--root`     | generate context for another folder       |
+
+---
+
+## Prompt-ready example
+
 ```markdown
+# Repository Context
+
+## Tree
 /your-repo/
 - README.md
-  ```
-  # Your Project
-  …
-  ```
 - src/
   - YourProject.csproj
-    ```
-    <Project Sdk="Microsoft.NET.Sdk">
-      <PropertyGroup>
-        <TargetFramework>net8.0</TargetFramework>
-      </PropertyGroup>
-    </Project>
-    ```
+  - Api/
+  - Domain/
+- tests/
+
+## Content
+- README.md
+
+  # Your Project
+  Short description...
+  
+- src/YourProject.csproj
+  <Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+      <TargetFramework>net8.0</TargetFramework>
+    </PropertyGroup>
+  </Project>
 
 ## Recent Changes (last 10)
 - feat: add project template
@@ -216,75 +365,43 @@ dotnet run --project ProjectContextGenerator.Console --root ../other-repo
 …
 ```
 
-### `history-title-only`
-```markdown
-/your-repo/
-- src/
-- tests/
-
-## Recent Changes (last 20)
-- feat(api): add OpenAPI endpoints
-- fix(domain): null-check in mapper
-- docs(readme): refresh quickstart
-…
-```
+You can add a note under your prompt such as: “Use only the context above. If more is needed, ask for a specific file or path. When suggesting edits, reference line numbers if present.”
 
 ---
 
 ## Requirements
 
-- **.NET 8 SDK**  
-- **Git** (on `PATH`) if you use the history block
+- .NET 8 SDK  
+- Git on PATH if you use history
 
 ---
 
-## Project layout (high level)
+## Project layout
 
 ```
 /ProjectContextGenerator
 ├─ ProjectContextGenerator.Console/
 ├─ ProjectContextGenerator.Domain/
-│  ├─ Abstractions/  ├─ Config/  ├─ Models/
-│  ├─ Options/       ├─ Rendering/ ├─ Services/
+│  ├─ Abstractions  ├─ Config  ├─ Models
+│  ├─ Options       ├─ Rendering  ├─ Services
 ├─ ProjectContextGenerator.Infrastructure/
-│  ├─ FileSystem/  ├─ Filtering/  ├─ GitIgnore/  ├─ Globbing/
+│  ├─ FileSystem  ├─ Filtering  ├─ GitIgnore  ├─ Globbing
 ├─ ProjectContextGenerator.Tests/
-│  ├─ ConfigTests/  ├─ Fakes/  ├─ GlobbingTests/
-│  ├─ RenderingTests/  ├─ TreeBuilderTests/
+│  ├─ ConfigTests  ├─ Fakes  ├─ GlobbingTests
+│  ├─ RenderingTests  ├─ TreeBuilderTests
 └─ ProjectContextGenerator.sln
 ```
 
 ---
 
-## Tips
-
-- Start with **`readme-focus`** for a clean, low-noise intro.  
-- For C# repos, **`csharp-essential`** surfaces README + project files + history titles.  
-- Need just the structure? **`tree-only`** or **`directories-only`**.  
-- Want recent activity? **`history-title-only`** or **`history-detailed`**.
-
----
-
-## Testing
-
-```bash
-dotnet test
-```
-
-Unit tests are deterministic via in-memory fakes and cover:
-config mapping (including `content.include` normalization), matching,
-tree traversal, content rendering (indentation/ellipsis/truncation), and history.
-
----
-
 ## Contributing
 
-- Document public APIs (XML docs).  
-- Add tests for new behavior.  
-- Keep the folder/namespace conventions.
+- Document public APIs with XML comments  
+- Add tests for new behavior  
+- Keep the folder and namespace conventions
 
 ---
 
 ## License
 
-Licensed under the **Apache License 2.0** (`LICENSE.txt`).
+Apache License 2.0 (`LICENSE.txt`).
