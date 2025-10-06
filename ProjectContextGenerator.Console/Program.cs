@@ -98,8 +98,23 @@ class Program
 
         var builder = new TreeBuilder(fs, filter);
 
+        // Build a matcher for content.include (only when enabled and patterns are present).
+        // When null, the renderer intentionally renders no content (by design).
+        IPathMatcher? contentIncludeMatcher = null;
+        if (content.Enabled)
+        {
+            if (content.Include is { Count: > 0 })
+            {
+                contentIncludeMatcher = new GlobPathMatcher(content.Include, excludeGlobs: null);
+            }
+            else
+            {
+                Console.Error.WriteLine("[warn] content.enabled=true but no content.include patterns were provided; no file content will be rendered.");
+            }
+        }
+
         // Use the content-aware Markdown renderer
-        var renderer = new MarkdownTreeRenderer(fs, rootPath, content);
+        var renderer = new MarkdownTreeRenderer(fs, rootPath, content, contentIncludeMatcher);
 
         // Build tree and render
         var tree = builder.Build(rootPath, scan);
